@@ -1,11 +1,13 @@
 use crate::{
     app::LoopType,
+    render::{surface::SurfaceId, Renderer},
     window::{CatWindow, WindowAttributes, Windows},
     winit::WinitContext,
 };
 
 pub(crate) struct StaticContext {
     pub windows: Windows,
+    pub renderer: Renderer,
     pub fps: u32,
 }
 
@@ -14,6 +16,7 @@ impl StaticContext {
         Self {
             fps: 0,
             windows: Windows::new(),
+            renderer: pollster::block_on(Renderer::new()),
         }
     }
 }
@@ -46,7 +49,6 @@ impl<'a> AppContext<'a> {
             LoopType::Active => ControlFlow::Poll,
             LoopType::Waiting => ControlFlow::Wait,
         };
-
         self.winit_context.event_loop.set_control_flow(control_flow);
     }
     pub fn create_window(&mut self, attrs: WindowAttributes) -> CatWindow {
@@ -57,5 +59,20 @@ impl<'a> AppContext<'a> {
     }
     pub fn exists_window(&self, window: &CatWindow) -> bool {
         self.base.windows.exists(window)
+    }
+    //-----------------------------RENDERER---------------------------//
+    pub fn get_mut_renderer(&mut self) -> &mut Renderer {
+        &mut self.base.renderer
+    }
+    pub fn get_renderer(&mut self) -> &Renderer {
+        &self.base.renderer
+    }
+    //------RENDERING-----/
+    pub fn create_surface_for_window(&mut self, window: &CatWindow) -> Option<SurfaceId> {
+        Some(
+            self.base
+                .renderer
+                .create_surface(self.base.windows.get(window)?),
+        )
     }
 }

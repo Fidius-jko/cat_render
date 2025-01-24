@@ -65,13 +65,13 @@ impl<App: CatApp> ApplicationHandler for WinitApp<App> {
                     let fps = app_context.base.fps;
                     self.app.as_mut().unwrap().update(&mut app_context);
 
-                    // self.app
-                    //     .as_mut()
-                    //     .unwrap()
-                    //     .render(&mut app_context.base.renderer);
-                    // if app_context.base.renderer.exit {
-                    //      app_context.exit = true;
-                    // }
+                    self.app
+                        .as_mut()
+                        .unwrap()
+                        .render(&mut app_context.base.renderer);
+                    if app_context.base.renderer.needs_exit {
+                        app_context.exit = true;
+                    }
 
                     if fps != app_context.base.fps {
                         if app_context.base.fps != 0 {
@@ -85,11 +85,8 @@ impl<App: CatApp> ApplicationHandler for WinitApp<App> {
                     self.fps_timer.as_mut().unwrap().reset();
                 }
             }
-            WindowEvent::Resized(_physical_size) => {
-                // app_context Maybe create hooks
-                //     .base
-                //     .renderer
-                //     .on_resize(&id, physical_size);
+            WindowEvent::Resized(physical_size) => {
+                app_context.base.renderer.on_resize(&id, physical_size);
             }
             _ => {}
         }
