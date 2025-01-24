@@ -8,7 +8,7 @@ pub struct BindGroup {
 }
 
 impl BindGroup {
-    pub(crate) fn new(renderer: &mut Renderer, entries: Vec<BindGroupEntry>) -> Self {
+    pub fn new(renderer: &Renderer, entries: Vec<BindGroupEntry>) -> Self {
         let mut out_entries = Vec::new();
         for entry in entries.iter() {
             out_entries.push(wgpu::BindGroupLayoutEntry {

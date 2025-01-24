@@ -3,7 +3,7 @@
 
 use bind_group::BindGroupEntry;
 pub use bytemuck;
-
+pub use wgpu;
 pub mod bind_group;
 pub mod buffer;
 pub mod render_pipeline;
@@ -102,6 +102,7 @@ impl<'a> Render<'a> {
     pub fn get_surface_id(&self) -> SurfaceId {
         self.surface_id.clone()
     }
+
     pub fn set_bind_group(
         &mut self,
         index: u32,
@@ -169,7 +170,7 @@ impl GetIndexFormat for u32 {
 }
 
 impl Renderer {
-    pub fn create_bind_group(&mut self, entries: Vec<BindGroupEntry>) -> BindGroup {
+    pub fn create_bind_group(&self, entries: Vec<BindGroupEntry>) -> BindGroup {
         BindGroup::new(self, entries)
     }
     pub fn create_texture_from_bytes(&mut self, bytes: &[u8]) -> Result<Texture, anyhow::Error> {
@@ -195,7 +196,7 @@ impl Renderer {
     pub fn update_buffer<V: Pod + Zeroable>(&self, vertices: Vec<V>, buffer: &Buffer<V>) {
         buffer.update(self, vertices);
     }
-    pub fn new_buffer<V: Pod + Zeroable>(
+    pub fn create_buffer<V: Pod + Zeroable>(
         &self,
         vertices: Vec<V>,
         usage: BufferUsages,
@@ -257,6 +258,7 @@ impl Renderer {
                     wgpu::SurfaceError::Timeout => {
                         log::warn!("Surface timeout")
                     }
+                    wgpu::SurfaceError::Other => {}
                 }
                 log::error!("Failed to start render: {}", e);
                 return;
@@ -309,7 +311,7 @@ impl Renderer {
     }
 
     pub(crate) async fn new() -> Self {
-        let instance = wgpu::Instance::new(wgpu::InstanceDescriptor {
+        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
             #[cfg(not(target_arch = "wasm32"))]
             backends: wgpu::Backends::PRIMARY,
             #[cfg(target_arch = "wasm32")]

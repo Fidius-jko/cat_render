@@ -5,8 +5,8 @@ use wgpu::util::DeviceExt;
 
 use super::Renderer;
 
-pub use wgpu::BindingResource;
-pub use wgpu::BufferUsages;
+pub type BindingResource<'a> = wgpu::BindingResource<'a>;
+pub type BufferUsages = wgpu::BufferUsages;
 
 pub struct Buffer<V: bytemuck::Pod + bytemuck::Zeroable> {
     pub(crate) wgpu_buffer: wgpu::Buffer,
@@ -15,7 +15,7 @@ pub struct Buffer<V: bytemuck::Pod + bytemuck::Zeroable> {
 }
 
 impl<V: Pod + Zeroable> Buffer<V> {
-    pub(crate) fn new(renderer: &Renderer, vertices: Vec<V>, usage: BufferUsages) -> Self {
+    pub fn new(renderer: &Renderer, vertices: Vec<V>, usage: BufferUsages) -> Self {
         let buffer = renderer
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -29,7 +29,7 @@ impl<V: Pod + Zeroable> Buffer<V> {
             mark: PhantomData::default(),
         }
     }
-    pub(crate) fn update(&self, renderer: &Renderer, vertices: Vec<V>) {
+    pub fn update(&self, renderer: &Renderer, vertices: Vec<V>) {
         renderer
             .queue
             .write_buffer(&self.wgpu_buffer, 0, bytemuck::cast_slice(&vertices));

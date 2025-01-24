@@ -11,12 +11,12 @@ pub struct Texture {
 }
 
 impl Texture {
-    pub(crate) fn from_bytes(renderer: &mut Renderer, bytes: &[u8]) -> Result<Self> {
+    pub fn from_bytes(renderer: &mut Renderer, bytes: &[u8]) -> Result<Self> {
         let img = image::load_from_memory(bytes)?;
         Self::from_image(renderer, &img)
     }
 
-    pub(crate) fn from_image(renderer: &mut Renderer, img: &image::DynamicImage) -> Result<Self> {
+    pub fn from_image(renderer: &mut Renderer, img: &image::DynamicImage) -> Result<Self> {
         let rgba = img.to_rgba8();
         let dimensions = img.dimensions();
 
@@ -37,14 +37,14 @@ impl Texture {
         });
 
         renderer.queue.write_texture(
-            wgpu::ImageCopyTexture {
+            wgpu::TexelCopyTextureInfo {
                 aspect: wgpu::TextureAspect::All,
                 texture: &texture,
                 mip_level: 0,
                 origin: wgpu::Origin3d::ZERO,
             },
             &rgba,
-            wgpu::ImageDataLayout {
+            wgpu::TexelCopyBufferLayout {
                 offset: 0,
                 bytes_per_row: Some(4 * dimensions.0),
                 rows_per_image: Some(dimensions.1),
