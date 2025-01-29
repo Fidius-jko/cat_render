@@ -3,11 +3,11 @@ use cat_render::{
     prelude::*,
     render::{
         mesh::{Material, MaterialLayoutBuilder, Mesh},
-        render_pipeline::{MultisampleState, PipelineOptions, PrimitiveState},
+        render_pipeline::PipelineOptions,
     },
     utils::fs::Filesystem,
 };
-use wgpu::{BlendState, ColorWrites, ShaderStages};
+use wgpu::ShaderStages;
 
 fn main() {
     let _ = App::run();

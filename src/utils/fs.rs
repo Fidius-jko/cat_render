@@ -1,4 +1,4 @@
-// TODO Platform specifick functions
+//! Filesystem for cross-platform loading and uploading assets
 
 use std::{
     fs::OpenOptions,

@@ -1,9 +1,17 @@
-pub struct Camera {}
+// TODO camera
+// use super::{bind_group::BindGroup, buffer::Buffer};
 
-pub struct View {}
+// pub struct Camera {
+//     render: CameraRender,
+// }
 
-#[repr(C)]
-#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct ViewUniform {
-    proj: [[f32; 4]; 4],
-}
+// pub struct CameraRender {
+//     buffer: Buffer<CameraUniform>,
+//     bindgroup: BindGroup,
+// }
+
+// #[repr(C)]
+// #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+// pub struct CameraUniform {
+//     proj: [[f32; 4]; 4],
+// }

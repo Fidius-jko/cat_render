@@ -1,66 +1,24 @@
-// TODO SUPPORT WASM
-// TODO SUPPORT MONITORS
-
-use bind_group::{BindGroupEntryLayout, BindGroupEntryResources, BindGroupLayout};
 pub use bytemuck;
-pub mod mesh;
 pub use wgpu;
+
 pub mod bind_group;
 pub mod buffer;
 pub mod camera;
+pub mod color;
+pub mod mesh;
 pub mod render_pipeline;
 pub mod surface;
 pub mod texture;
-pub mod uniform;
+
+pub use color::Color;
+
 use bind_group::BindGroup;
+use bind_group::{BindGroupEntryLayout, BindGroupEntryResources};
 use buffer::Buffer;
 use image::DynamicImage;
 use render_pipeline::{PipelineId, PipelineOptions, Pipelines};
 use surface::{SurfaceId, Surfaces};
 use texture::Texture;
-pub struct Color {
-    pub r: f32,
-    pub g: f32,
-    pub b: f32,
-    pub a: f32,
-}
-impl Color {
-    pub fn srgba(r: f32, g: f32, b: f32, a: f32) -> Self {
-        Self { r, g, b, a }
-    }
-    pub fn srgba_255(r: f32, g: f32, b: f32, a: f32) -> Self {
-        Self {
-            r: r / 255.,
-            g: g / 255.,
-            b: b / 255.,
-            a: a / 255.,
-        }
-    }
-    pub fn srgb_255(r: f32, g: f32, b: f32) -> Self {
-        Self {
-            r: r / 255.,
-            g: g / 255.,
-            b: b / 255.,
-            a: 1.0,
-        }
-    }
-    pub fn srgb(r: f32, g: f32, b: f32) -> Self {
-        Self { r, g, b, a: 1.0 }
-    }
-}
-impl Into<wgpu::Color> for Color {
-    fn into(self) -> wgpu::Color {
-        wgpu::Color {
-            r: self.r as f64,
-            g: self.g as f64,
-            b: self.b as f64,
-            a: self.a as f64,
-        }
-    }
-}
-// pub type Color = wgpu::Color;
-
-pub type DynamicOffset = wgpu::DynamicOffset;
 
 use std::{
     mem::replace,
@@ -71,8 +29,8 @@ use std::{
 
 use bytemuck::{Pod, Zeroable};
 use wgpu::{
-    Adapter, BufferUsages, Device, IndexFormat, Instance, Queue, RenderPass, RenderPipeline,
-    Surface, SurfaceTexture, TextureFormat, TextureView,
+    Adapter, BufferUsages, Device, DynamicOffset, IndexFormat, Instance, Queue, RenderPass,
+    RenderPipeline, Surface, SurfaceTexture, TextureFormat, TextureView,
 };
 use winit::{
     dpi::PhysicalSize,
@@ -88,6 +46,8 @@ pub struct Renderer {
     pub(crate) needs_exit: bool,
 }
 
+/// Rendering is here
+#[allow(dead_code)]
 pub struct Render<'a> {
     output: &'a SurfaceTexture,
     view: TextureView,
@@ -97,17 +57,21 @@ pub struct Render<'a> {
 }
 
 impl<'a> Render<'a> {
+    /// Get renderer for init something
     pub fn get_renderer(&self) -> &Renderer {
         &self.renderer
     }
+    /// Get surface size
     pub fn get_surface_size(&self) -> (u32, u32) {
         let size = self.output.texture.size();
         (size.width, size.height)
     }
+    /// Get surface id
     pub fn get_surface_id(&self) -> SurfaceId {
         self.surface_id.clone()
     }
 
+    /// Set bind group
     pub fn set_bind_group(
         &mut self,
         index: u32,
@@ -117,17 +81,21 @@ impl<'a> Render<'a> {
         self.render_pass
             .set_bind_group(index, &bind_group.group, offsets);
     }
+    /// Set pipeline
     pub fn set_pipeline(&mut self, id: PipelineId) {
         self.render_pass
             .set_pipeline(&self.renderer.get_pipeline(self.output.texture.format(), id));
     }
+    /// draw
     pub fn draw(&mut self, vertices: Range<u32>, instances: Range<u32>) {
         self.render_pass.draw(vertices, instances);
     }
+    /// draw with indicies
     pub fn draw_indexed(&mut self, vertices: Range<u32>, base_vertex: i32, instances: Range<u32>) {
         self.render_pass
             .draw_indexed(vertices, base_vertex, instances);
     }
+    /// set vertex buffer
     pub fn set_vertex_buffer<V: Zeroable + Pod>(
         &mut self,
         buffer: &Buffer<V>,
@@ -142,6 +110,7 @@ impl<'a> Render<'a> {
         self.render_pass
             .set_vertex_buffer(slot, buffer.wgpu_buffer.slice(buffer_slice));
     }
+    /// set index buffer need for `draw_indexed`
     pub fn set_index_buffer<V: Zeroable + Pod + GetIndexFormat>(
         &mut self,
         buffer: &Buffer<V>,
@@ -175,6 +144,7 @@ impl GetIndexFormat for u32 {
 }
 
 impl Renderer {
+    /// Create bind group
     pub fn create_bind_group(
         &self,
         layout: Vec<BindGroupEntryLayout>,
@@ -182,19 +152,21 @@ impl Renderer {
     ) -> BindGroup {
         BindGroup::new(self, layout, res)
     }
+    /// Create texture
     pub fn create_texture_from_bytes(&mut self, bytes: &[u8]) -> Result<Texture, anyhow::Error> {
         Texture::from_bytes(self, bytes)
     }
+    /// Create texture from `image` crate
     pub fn create_texture_from_image(
         &mut self,
         img: &DynamicImage,
     ) -> Result<Texture, anyhow::Error> {
         Texture::from_image(self, img)
     }
+
     pub(crate) fn create_surface(&mut self, window: Arc<Window>) -> SurfaceId {
         Surfaces::get().create_surface(self, window)
     }
-
     pub(crate) fn get_surface(&self, id: SurfaceId) -> Arc<Surface<'_>> {
         Surfaces::get().get_surface(id).wgpu_surface.clone()
     }
@@ -202,9 +174,11 @@ impl Renderer {
         Surfaces::get().resize_window_surface(self, window_id, new_size);
     }
 
+    /// Update buffer
     pub fn update_buffer<V: Pod + Zeroable>(&self, vertices: Vec<V>, buffer: &mut Buffer<V>) {
         buffer.update(self, vertices);
     }
+    /// Create buffer
     pub fn create_buffer<V: Pod + Zeroable>(
         &self,
         vertices: Vec<V>,
@@ -212,15 +186,18 @@ impl Renderer {
     ) -> Buffer<V> {
         Buffer::<V>::new(self, vertices, usage)
     }
+    /// Is exists surface
     pub fn exists_surface(&self, surface: SurfaceId) -> bool {
         Surfaces::get().exists(surface)
     }
+    /// Create pipeline
     pub fn create_pipeline(&mut self, options: PipelineOptions) -> PipelineId {
         let mut pipelines = replace(&mut self.pipelines, Pipelines::new());
         let id = pipelines.create_pipeline(&self, options);
         let _ = replace(&mut self.pipelines, pipelines);
         return id;
     }
+    /// Get pipeline
     pub fn get_pipeline(
         &mut self,
         format: TextureFormat,
@@ -232,6 +209,8 @@ impl Renderer {
         return pipeline;
     }
 
+    /// Renderings starts here!
+    #[allow(unused_assignments)]
     pub fn start_render_for_surface(
         &mut self,
         surface_id: SurfaceId,

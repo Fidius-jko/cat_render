@@ -29,6 +29,7 @@ pub struct AppConfig {
     pub loop_type: LoopType,
 }
 
+/// See winit event loop modes
 #[derive(Default)]
 pub enum LoopType {
     #[default]

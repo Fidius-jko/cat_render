@@ -1,3 +1,5 @@
+//! `Texture` is need for render textures :)
+
 use anyhow::*;
 use image::GenericImageView;
 
@@ -12,11 +14,12 @@ pub struct Texture {
 }
 
 impl Texture {
+    /// From raw bytes
     pub fn from_bytes(renderer: &mut Renderer, bytes: &[u8]) -> Result<Self> {
         let img = image::load_from_memory(bytes)?;
         Self::from_image(renderer, &img)
     }
-
+    /// From image from crate `image`
     pub fn from_image(renderer: &mut Renderer, img: &image::DynamicImage) -> Result<Self> {
         let rgba = img.to_rgba8();
         let dimensions = img.dimensions();

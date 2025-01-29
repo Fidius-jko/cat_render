@@ -1,10 +1,15 @@
+//! This is for work `renderer.create_pipeline` and other
+
 use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
 
+use wgpu::{
+    BindGroupLayout, BlendState, ColorWrites, DepthStencilState, MultisampleState, PipelineCache,
+    PipelineLayout, PrimitiveState, ShaderModule, TextureFormat, VertexBufferLayout,
+};
 pub use wgpu::{PipelineCompilationOptions, PipelineLayoutDescriptor};
-use wgpu::{PipelineLayout, ShaderModule, TextureFormat};
 
 pub use wgpu::RenderPipeline;
 
@@ -175,14 +180,6 @@ impl Default for PipelineOptions {
         }
     }
 }
-pub type BindGroupLayout = wgpu::BindGroupLayout;
-pub type BlendState = wgpu::BlendState;
-pub type ColorWrites = wgpu::ColorWrites;
-pub type DepthStencilState = wgpu::DepthStencilState;
-pub type MultisampleState = wgpu::MultisampleState;
-pub type PipelineCache = wgpu::PipelineCache;
-pub type PrimitiveState = wgpu::PrimitiveState;
-pub type VertexBufferLayout<'a> = wgpu::VertexBufferLayout<'a>;
 
 #[derive(Hash, PartialEq, Eq, Clone)]
 pub struct PipelineId(u32);

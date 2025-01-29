@@ -1,18 +1,19 @@
 use std::collections::HashMap;
 
 use bytemuck::{Pod, Zeroable};
-use wgpu::BufferUsages;
+use wgpu::{BindingType, BufferUsages, ShaderStages};
 
-use crate::render::bind_group::{BindGroupLayout, BindingType};
+use crate::render::bind_group::BindGroupLayout;
 
 use super::{
-    bind_group::{BindGroup, BindGroupEntryLayout, BindGroupEntryResources, ShaderStages},
+    bind_group::{BindGroup, BindGroupEntryLayout, BindGroupEntryResources},
     buffer::{Buffer, UnTypedBuffer},
     render_pipeline::{PipelineId, PipelineOptions},
     texture::Texture,
     Render, Renderer,
 };
 
+/// Abstraction of buffers for index and verticies need material
 pub struct Mesh<V: Pod + Zeroable + Clone> {
     vertices: Vec<V>,
     buffer: Option<Buffer<V>>,
@@ -23,6 +24,7 @@ pub struct Mesh<V: Pod + Zeroable + Clone> {
 }
 
 impl<V: Pod + Zeroable> Mesh<V> {
+    /// New buffer
     pub fn new(vertices: Vec<V>, indicies: Vec<u16>) -> Self {
         Self {
             vertices,
@@ -33,6 +35,7 @@ impl<V: Pod + Zeroable> Mesh<V> {
             is_need_update_index_buf: false,
         }
     }
+    /// Init buffers or updates it
     pub fn update_if_need(&mut self, renderer: &Renderer) {
         if let None = self.buffer {
             self.buffer = Some(renderer.create_buffer(
@@ -53,6 +56,7 @@ impl<V: Pod + Zeroable> Mesh<V> {
             renderer.update_buffer(self.indicies.clone(), self.index_buffer.as_mut().unwrap());
         }
     }
+    /// Draw!
     pub fn draw_with_material(
         &mut self,
         render: &mut Render,
@@ -73,6 +77,7 @@ impl<V: Pod + Zeroable> Mesh<V> {
 
 // Uniforms and textures
 
+/// Buildes for MaterialLayout
 /// Ignore in `PipelineOptions` field `bind_group_layouts`
 pub struct MaterialLayoutBuilder {
     pipeline_options: PipelineOptions,
@@ -131,21 +136,19 @@ impl MaterialLayoutBuilder {
         let pipeline = renderer.create_pipeline(self.pipeline_options);
 
         MaterialLayout {
-            // uniforms: self.uniforms.clone(),
-            // textures: self.textures.clone(),
             pipeline,
             bindgroup: bind_group_layout,
         }
     }
 }
 
+/// Layout for create Material
 pub struct MaterialLayout {
-    // uniforms: Vec<u32>,
-    // textures: Vec<(u32, u32)>,
     pipeline: PipelineId,
     bindgroup: BindGroupLayout,
 }
 
+/// Material is abstraction for uniforms and textures
 pub struct Material {
     pipeline: PipelineId,
     bindgroup: BindGroup,
@@ -153,6 +156,8 @@ pub struct Material {
 }
 impl Material {
     /// Uniform is bytes!
+    /// uniforms -> shader -> @group(use_buffer_value) @binding(item[0] (u32))
+    /// textures same but first u32 is view and second sampler
     pub fn from_layout(
         renderer: &Renderer,
         layout: &MaterialLayout,
@@ -170,7 +175,7 @@ impl Material {
             uniform_buffers.insert(binding.clone(), buf);
         }
 
-        for (binding, bytes) in uniforms.iter() {
+        for (binding, _) in uniforms.iter() {
             res.push(BindGroupEntryResources {
                 binding: binding.clone(),
                 resource: uniform_buffers
@@ -197,13 +202,36 @@ impl Material {
             uniform_buffers,
         }
     }
+    /// Update uniform
     pub fn update_uniform(&mut self, slot: u32, bytes: Vec<u8>, renderer: &Renderer) {
         self.uniform_buffers
             .get_mut(&slot)
             .expect("No uniform on slot!")
             .update(renderer, vec![bytes]);
     }
-    // pub fn change_texture() {} TODO
+    /// Globaly change textures
+    pub fn change_textures(&mut self, textures: Vec<(u32, u32, Texture)>, renderer: &Renderer) {
+        let mut res = Vec::new();
+
+        for (binding, buffer) in self.uniform_buffers.iter() {
+            res.push(BindGroupEntryResources {
+                binding: binding.clone(),
+                resource: buffer.as_entire_binding(),
+            });
+        }
+        for (binding, sample_binding, texture) in textures.iter() {
+            res.push(BindGroupEntryResources {
+                binding: *binding,
+                resource: wgpu::BindingResource::TextureView(&texture.view),
+            });
+            res.push(BindGroupEntryResources {
+                binding: sample_binding.clone(),
+                resource: wgpu::BindingResource::Sampler(&texture.sampler),
+            });
+        }
+        self.bindgroup = BindGroup::new_from_layout(renderer, res, &self.bindgroup.cat_layout());
+    }
+    /// Need for render
     pub fn use_me(&self, render: &mut Render, slot: u32) {
         render.set_pipeline(self.pipeline.clone());
         render.set_bind_group(slot, &self.bindgroup, &[]);
