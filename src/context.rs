@@ -1,3 +1,9 @@
+// TODO: Change Hashmap to faster from hashbrown
+use std::{
+    any::{Any, TypeId},
+    collections::HashMap,
+};
+
 use crate::{
     app::LoopType,
     render::{surface::SurfaceId, Renderer},
@@ -9,6 +15,7 @@ pub(crate) struct StaticContext {
     pub windows: Windows,
     pub renderer: Renderer,
     pub fps: u32,
+    pub resources: Resources,
 }
 
 impl StaticContext {
@@ -17,6 +24,38 @@ impl StaticContext {
             fps: 0,
             windows: Windows::new(),
             renderer: pollster::block_on(Renderer::new()),
+            resources: Resources::new(),
+        }
+    }
+}
+
+pub(crate) struct Resources {
+    resources: HashMap<TypeId, Box<dyn Any>>,
+}
+
+impl Resources {
+    pub fn new() -> Self {
+        Self {
+            resources: HashMap::new(),
+        }
+    }
+    pub fn insert<R: Any>(&mut self, res: R) {
+        self.resources.insert(TypeId::of::<R>(), Box::new(res));
+    }
+    pub fn contains<R: Any>(&self) -> bool {
+        self.resources.contains_key(&TypeId::of::<R>())
+    }
+
+    pub fn get<R: Any>(&self) -> Option<&R> {
+        match self.resources.get(&TypeId::of::<R>()) {
+            Some(r) => r.downcast_ref(),
+            None => None,
+        }
+    }
+    pub fn get_mut<R: Any>(&mut self) -> Option<&mut R> {
+        match self.resources.get_mut(&TypeId::of::<R>()) {
+            Some(r) => r.downcast_mut(),
+            None => None,
         }
     }
 }
@@ -64,7 +103,7 @@ impl<'a> AppContext<'a> {
     pub fn get_mut_renderer(&mut self) -> &mut Renderer {
         &mut self.base.renderer
     }
-    pub fn get_renderer(&mut self) -> &Renderer {
+    pub fn get_renderer(&self) -> &Renderer {
         &self.base.renderer
     }
     //------RENDERING-----/
@@ -74,5 +113,19 @@ impl<'a> AppContext<'a> {
                 .renderer
                 .create_surface(self.base.windows.get(window)?),
         )
+    }
+    //-----------------------------RESOURCES---------------------------//
+    pub fn insert_resource<R: Any>(&mut self, res: R) {
+        self.base.resources.insert(res);
+    }
+    pub fn contains_resource<R: Any>(&self) -> bool {
+        self.base.resources.contains::<R>()
+    }
+
+    pub fn get_resource<R: Any>(&self) -> Option<&R> {
+        self.base.resources.get::<R>()
+    }
+    pub fn get_mut_resource<R: Any>(&mut self) -> Option<&mut R> {
+        self.base.resources.get_mut::<R>()
     }
 }

@@ -132,7 +132,7 @@ impl<'a> Surfaces<'a> {
     }
 }
 
-pub static SURFACES: LazyLock<Arc<Mutex<Surfaces>>> =
+pub(crate) static SURFACES: LazyLock<Arc<Mutex<Surfaces>>> =
     std::sync::LazyLock::new(|| Arc::new(Mutex::new(Surfaces::new())));
 
 #[derive(Hash, PartialEq, Eq, Clone, Debug)]

@@ -142,6 +142,39 @@ pub struct PipelineOptions {
     /// The pipeline cache to use when creating this pipeline.
     pub cache: Option<PipelineCache>,
 }
+impl Default for PipelineOptions {
+    fn default() -> Self {
+        PipelineOptions {
+            vertex_shader: "YOUR SHADER".to_string(),
+            vertex_entry_point: String::from("vs_main"),
+            fragment_shader: None,
+            fragment_entry_point: String::from("fs_main"),
+            frag_blend: Some(BlendState::REPLACE),
+            write_mask: ColorWrites::all(),
+            bind_group_layouts: vec![],
+            buffers: vec![],
+            primitive: PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: Some(wgpu::Face::Back),
+                // Setting this to anything other than Fill requires Features::NON_FILL_POLYGON_MODE
+                polygon_mode: wgpu::PolygonMode::Fill,
+                // Requires Features::DEPTH_CLIP_CONTROL
+                unclipped_depth: false,
+                // Requires Features::CONSERVATIVE_RASTERIZATION
+                conservative: false,
+            },
+            depth_stencil: None,
+            multisample: MultisampleState {
+                count: 1,
+                mask: !0,
+                alpha_to_coverage_enabled: false,
+            },
+            cache: None,
+        }
+    }
+}
 pub type BindGroupLayout = wgpu::BindGroupLayout;
 pub type BlendState = wgpu::BlendState;
 pub type ColorWrites = wgpu::ColorWrites;

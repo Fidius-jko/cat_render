@@ -1,4 +1,7 @@
-use std::marker::PhantomData;
+use std::{
+    marker::PhantomData,
+    sync::{Arc, Mutex},
+};
 
 use bytemuck::{Pod, Zeroable};
 use wgpu::util::DeviceExt;
@@ -8,9 +11,10 @@ use super::Renderer;
 pub type BindingResource<'a> = wgpu::BindingResource<'a>;
 pub type BufferUsages = wgpu::BufferUsages;
 
+#[derive(Clone)]
 pub struct Buffer<V: bytemuck::Pod + bytemuck::Zeroable> {
     pub(crate) wgpu_buffer: wgpu::Buffer,
-    pub(crate) vertices_number: u32,
+    vertices_number: Arc<Mutex<u32>>,
     mark: PhantomData<V>,
 }
 
@@ -19,23 +23,66 @@ impl<V: Pod + Zeroable> Buffer<V> {
         let buffer = renderer
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Vertex Buffer"),
+                label: Some("Buffer"),
                 contents: bytemuck::cast_slice(&vertices),
                 usage,
             });
         Self {
             wgpu_buffer: buffer,
-            vertices_number: vertices.len() as u32,
+            vertices_number: Arc::new(Mutex::new(vertices.len() as u32)),
             mark: PhantomData::default(),
         }
     }
-    pub fn update(&self, renderer: &Renderer, vertices: Vec<V>) {
+    pub fn update(&mut self, renderer: &Renderer, vertices: Vec<V>) {
+        *self.vertices_number.lock().unwrap() = vertices.len() as u32;
         renderer
             .queue
             .write_buffer(&self.wgpu_buffer, 0, bytemuck::cast_slice(&vertices));
     }
     pub fn get_vertices_number(&self) -> u32 {
-        self.vertices_number
+        self.vertices_number.lock().unwrap().clone()
+    }
+    pub fn as_entire_binding(&self) -> BindingResource {
+        self.wgpu_buffer.as_entire_binding()
+    }
+}
+pub struct UnTypedBuffer {
+    pub(crate) wgpu_buffer: wgpu::Buffer,
+    pub(crate) vertices_number: Arc<Mutex<u32>>,
+}
+
+impl UnTypedBuffer {
+    pub fn new(renderer: &Renderer, vertices_bytes: Vec<Vec<u8>>, usage: BufferUsages) -> Self {
+        let buffer = renderer
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Buffer"),
+                contents: &vertices_bytes
+                    .iter()
+                    .cloned()
+                    .flatten()
+                    .collect::<Vec<u8>>(),
+                usage,
+            });
+        Self {
+            wgpu_buffer: buffer,
+            vertices_number: Arc::new(Mutex::new(vertices_bytes.len() as u32)),
+        }
+    }
+    pub fn update(&mut self, renderer: &Renderer, vertices_bytes: Vec<Vec<u8>>) {
+        *self.vertices_number.lock().unwrap() = vertices_bytes.len() as u32;
+        renderer.queue.write_buffer(
+            &self.wgpu_buffer,
+            0,
+            &vertices_bytes
+                .iter()
+                .cloned()
+                .flatten()
+                .collect::<Vec<u8>>(),
+        );
+    }
+    pub fn get_vertices_number(&self) -> u32 {
+        self.vertices_number.lock().unwrap().clone()
     }
     pub fn as_entire_binding(&self) -> BindingResource {
         self.wgpu_buffer.as_entire_binding()

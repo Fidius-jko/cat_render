@@ -1,11 +1,13 @@
 // TODO SUPPORT WASM
 // TODO SUPPORT MONITORS
 
-use bind_group::BindGroupEntry;
+use bind_group::{BindGroupEntryLayout, BindGroupEntryResources, BindGroupLayout};
 pub use bytemuck;
+pub mod mesh;
 pub use wgpu;
 pub mod bind_group;
 pub mod buffer;
+pub mod camera;
 pub mod render_pipeline;
 pub mod surface;
 pub mod texture;
@@ -95,6 +97,9 @@ pub struct Render<'a> {
 }
 
 impl<'a> Render<'a> {
+    pub fn get_renderer(&self) -> &Renderer {
+        &self.renderer
+    }
     pub fn get_surface_size(&self) -> (u32, u32) {
         let size = self.output.texture.size();
         (size.width, size.height)
@@ -170,8 +175,12 @@ impl GetIndexFormat for u32 {
 }
 
 impl Renderer {
-    pub fn create_bind_group(&self, entries: Vec<BindGroupEntry>) -> BindGroup {
-        BindGroup::new(self, entries)
+    pub fn create_bind_group(
+        &self,
+        layout: Vec<BindGroupEntryLayout>,
+        res: Vec<BindGroupEntryResources>,
+    ) -> BindGroup {
+        BindGroup::new(self, layout, res)
     }
     pub fn create_texture_from_bytes(&mut self, bytes: &[u8]) -> Result<Texture, anyhow::Error> {
         Texture::from_bytes(self, bytes)
@@ -193,7 +202,7 @@ impl Renderer {
         Surfaces::get().resize_window_surface(self, window_id, new_size);
     }
 
-    pub fn update_buffer<V: Pod + Zeroable>(&self, vertices: Vec<V>, buffer: &Buffer<V>) {
+    pub fn update_buffer<V: Pod + Zeroable>(&self, vertices: Vec<V>, buffer: &mut Buffer<V>) {
         buffer.update(self, vertices);
     }
     pub fn create_buffer<V: Pod + Zeroable>(

@@ -3,6 +3,7 @@ use image::GenericImageView;
 
 use crate::render::Renderer;
 
+#[derive(Clone)]
 pub struct Texture {
     #[allow(unused)]
     pub(crate) texture: wgpu::Texture,
