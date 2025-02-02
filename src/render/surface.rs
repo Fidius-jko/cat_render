@@ -30,7 +30,7 @@ impl<'a> Surfaces<'a> {
     pub(crate) fn new() -> Self {
         Self {
             surfaces: HashMap::new(),
-            last_id: 0,
+            last_id: 1,
             window_surfaces: HashMap::new(),
         }
     }
@@ -135,5 +135,5 @@ impl<'a> Surfaces<'a> {
 pub(crate) static SURFACES: LazyLock<Arc<Mutex<Surfaces>>> =
     std::sync::LazyLock::new(|| Arc::new(Mutex::new(Surfaces::new())));
 
-#[derive(Hash, PartialEq, Eq, Clone, Debug)]
+#[derive(Hash, PartialEq, Eq, Clone, Debug, Default)]
 pub struct SurfaceId(u32);

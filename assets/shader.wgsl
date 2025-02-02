@@ -10,6 +10,12 @@ struct Uniform {
 @group(0) @binding(0) 
 var<uniform> uni: Uniform;
 
+struct CameraUniform {
+    proj: mat4x4<f32>,
+};
+@group(1) @binding(0) 
+var<uniform> cam_uni: CameraUniform;
+
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
     @location(0) tex_coords: vec2<f32>,
@@ -22,7 +28,7 @@ fn vs_main(
     var out: VertexOutput;
     out.tex_coords = model.tex_coords;
     out.tex_coords.y = 1 - out.tex_coords.y;
-    out.clip_position = uni.view_proj * vec4<f32>(model.position, 1.0);
+    out.clip_position = cam_uni.proj * (uni.view_proj * vec4<f32>(model.position , 1.0));
     return out;
 }
 

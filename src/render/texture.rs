@@ -1,6 +1,7 @@
 //! `Texture` is need for render textures :)
 
 use anyhow::*;
+use glam::{IVec2, UVec2};
 use image::GenericImageView;
 
 use crate::render::Renderer;
@@ -14,6 +15,10 @@ pub struct Texture {
 }
 
 impl Texture {
+    pub fn get_size(&self) -> UVec2 {
+        let size_3d = self.texture.size();
+        UVec2::new(size_3d.width, size_3d.height)
+    }
     /// From raw bytes
     pub fn from_bytes(renderer: &mut Renderer, bytes: &[u8]) -> Result<Self> {
         let img = image::load_from_memory(bytes)?;

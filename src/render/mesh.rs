@@ -35,6 +35,12 @@ impl<V: Pod + Zeroable> Mesh<V> {
             is_need_update_index_buf: false,
         }
     }
+    pub fn update(&mut self, vertices: Vec<V>, indicies: Vec<u16>) {
+        self.vertices = vertices;
+        self.indicies = indicies;
+        self.is_need_update_buf = true;
+        self.is_need_update_index_buf = true;
+    }
     /// Init buffers or updates it
     pub fn update_if_need(&mut self, renderer: &Renderer) {
         if let None = self.buffer {
@@ -57,14 +63,9 @@ impl<V: Pod + Zeroable> Mesh<V> {
         }
     }
     /// Draw!
-    pub fn draw_with_material(
-        &mut self,
-        render: &mut Render,
-        material: &Material,
-        material_slot: u32,
-    ) {
+    pub fn draw_with_material(&mut self, render: &mut Render, material: &Material) {
         self.update_if_need(render.get_renderer());
-        material.use_me(render, material_slot);
+        material.use_me(render, 0);
         render.set_vertex_buffer(self.buffer.as_ref().unwrap(), 0, ..);
         render.set_index_buffer(self.index_buffer.as_ref().unwrap(), ..);
         render.draw_indexed(
@@ -131,8 +132,9 @@ impl MaterialLayoutBuilder {
             });
         }
         let bind_group_layout = BindGroupLayout::new(&renderer, entries);
-
-        self.pipeline_options.bind_group_layouts = vec![bind_group_layout.layout()];
+        let mut bgl = vec![bind_group_layout.layout()];
+        bgl.append(&mut self.pipeline_options.bind_group_layouts);
+        self.pipeline_options.bind_group_layouts = bgl;
         let pipeline = renderer.create_pipeline(self.pipeline_options);
 
         MaterialLayout {
@@ -143,6 +145,7 @@ impl MaterialLayoutBuilder {
 }
 
 /// Layout for create Material
+#[derive(Clone)]
 pub struct MaterialLayout {
     pipeline: PipelineId,
     bindgroup: BindGroupLayout,

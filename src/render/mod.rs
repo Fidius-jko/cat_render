@@ -1,16 +1,17 @@
 pub use bytemuck;
+use camera::{Camera, CameraRender};
 pub use wgpu;
 
 pub mod bind_group;
 pub mod buffer;
 pub mod camera;
-pub mod color;
 pub mod mesh;
 pub mod render_pipeline;
+pub mod small;
 pub mod surface;
 pub mod texture;
 
-pub use color::Color;
+pub use small::Color;
 
 use bind_group::BindGroup;
 use bind_group::{BindGroupEntryLayout, BindGroupEntryResources};
@@ -54,9 +55,14 @@ pub struct Render<'a> {
     render_pass: RenderPass<'a>,
     renderer: &'a mut Renderer,
     surface_id: SurfaceId,
+    camera_render: Option<CameraRender>,
 }
 
 impl<'a> Render<'a> {
+    pub fn use_camera_uniform_at(&mut self, slot: u32) {
+        let bg = self.camera_render.as_ref().unwrap().bindgroup.clone();
+        self.set_bind_group(slot, &bg, &[]);
+    }
     /// Get renderer for init something
     pub fn get_renderer(&self) -> &Renderer {
         &self.renderer
@@ -173,6 +179,10 @@ impl Renderer {
     pub(crate) fn on_resize(&mut self, window_id: &WindowId, new_size: PhysicalSize<u32>) {
         Surfaces::get().resize_window_surface(self, window_id, new_size);
     }
+    pub fn get_surface_size(&self, surface: SurfaceId) -> (u32, u32) {
+        let size = Surfaces::get().get_surface(surface).size;
+        (size.width, size.height).clone()
+    }
 
     /// Update buffer
     pub fn update_buffer<V: Pod + Zeroable>(&self, vertices: Vec<V>, buffer: &mut Buffer<V>) {
@@ -208,7 +218,20 @@ impl Renderer {
         let _ = replace(&mut self.pipelines, pipelines);
         return pipeline;
     }
+    pub fn start_render_for_camera<C: Camera>(
+        &mut self,
+        camera: &mut C,
+        clear_color: Option<Color>,
+        mut commands_sender: impl FnMut(&mut Render),
+    ) {
+        let size = Surfaces::get().get_surface(camera.get_surface_id()).size;
 
+        let cam_render = camera.get_render(self, (size.width, size.height)).clone();
+        self.start_render_for_surface(camera.get_surface_id(), clear_color, |render| {
+            render.camera_render = Some(cam_render.clone());
+            (commands_sender)(render)
+        });
+    }
     /// Renderings starts here!
     #[allow(unused_assignments)]
     pub fn start_render_for_surface(
@@ -289,6 +312,8 @@ impl Renderer {
                 render_pass,
                 renderer: self,
                 surface_id: surface_id,
+
+                camera_render: None,
             };
             (commands_sender)(&mut render);
         }

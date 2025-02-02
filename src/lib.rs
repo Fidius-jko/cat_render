@@ -5,6 +5,7 @@ pub mod context;
 pub mod render;
 pub mod utils;
 pub mod window;
+pub use glam::*;
 
 pub mod prelude {
     pub use crate::app::*;

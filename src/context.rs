@@ -2,6 +2,7 @@
 use std::{
     any::{Any, TypeId},
     collections::HashMap,
+    sync::{Arc, LazyLock, Mutex, MutexGuard},
 };
 
 use crate::{
@@ -15,7 +16,6 @@ pub(crate) struct StaticContext {
     pub windows: Windows,
     pub renderer: Renderer,
     pub fps: u32,
-    pub resources: Resources,
 }
 
 impl StaticContext {
@@ -24,13 +24,13 @@ impl StaticContext {
             fps: 0,
             windows: Windows::new(),
             renderer: pollster::block_on(Renderer::new()),
-            resources: Resources::new(),
+            // resources: Resources::new(),
         }
     }
 }
 
-pub(crate) struct Resources {
-    resources: HashMap<TypeId, Box<dyn Any>>,
+pub struct Resources {
+    resources: HashMap<TypeId, Box<dyn Any + Send + Sync>>,
 }
 
 impl Resources {
@@ -39,27 +39,32 @@ impl Resources {
             resources: HashMap::new(),
         }
     }
-    pub fn insert<R: Any>(&mut self, res: R) {
+    pub fn insert<R: Any + Send + Sync>(&mut self, res: R) {
         self.resources.insert(TypeId::of::<R>(), Box::new(res));
     }
-    pub fn contains<R: Any>(&self) -> bool {
+    pub fn contains<R: Any + Send + Sync>(&self) -> bool {
         self.resources.contains_key(&TypeId::of::<R>())
     }
 
-    pub fn get<R: Any>(&self) -> Option<&R> {
+    pub fn get<R: Any + Send + Sync>(&self) -> Option<&R> {
         match self.resources.get(&TypeId::of::<R>()) {
             Some(r) => r.downcast_ref(),
             None => None,
         }
     }
-    pub fn get_mut<R: Any>(&mut self) -> Option<&mut R> {
+    pub fn get_mut<R: Any + Send + Sync>(&mut self) -> Option<&mut R> {
         match self.resources.get_mut(&TypeId::of::<R>()) {
             Some(r) => r.downcast_mut(),
             None => None,
         }
     }
+    pub fn get_me() -> MutexGuard<'static, Self> {
+        RESOURCES.lock().unwrap()
+    }
 }
 
+static RESOURCES: LazyLock<Arc<Mutex<Resources>>> =
+    std::sync::LazyLock::new(|| Arc::new(Mutex::new(Resources::new())));
 pub struct AppContext<'a> {
     pub(crate) base: &'a mut StaticContext,
     pub(crate) winit_context: WinitContext<'a>,
@@ -115,17 +120,17 @@ impl<'a> AppContext<'a> {
         )
     }
     //-----------------------------RESOURCES---------------------------//
-    pub fn insert_resource<R: Any>(&mut self, res: R) {
-        self.base.resources.insert(res);
-    }
-    pub fn contains_resource<R: Any>(&self) -> bool {
-        self.base.resources.contains::<R>()
-    }
+    // pub fn insert_resource<R: Any>(&mut self, res: R) {
+    //     self.base.resources.insert(res);
+    // }
+    // pub fn contains_resource<R: Any>(&self) -> bool {
+    //     self.base.resources.contains::<R>()
+    // }
 
-    pub fn get_resource<R: Any>(&self) -> Option<&R> {
-        self.base.resources.get::<R>()
-    }
-    pub fn get_mut_resource<R: Any>(&mut self) -> Option<&mut R> {
-        self.base.resources.get_mut::<R>()
-    }
+    // pub fn get_resource<R: Any>(&self) -> Option<&R> {
+    //     self.base.resources.get::<R>()
+    // }
+    // pub fn get_mut_resource<R: Any>(&mut self) -> Option<&mut R> {
+    //     self.base.resources.get_mut::<R>()
+    // }
 }
