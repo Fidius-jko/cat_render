@@ -2,7 +2,7 @@ use bytemuck::{Pod, Zeroable};
 use cat_render::{
     prelude::*,
     render::{
-        camera::{Camera, Camera2D, Camera2DOptions},
+        camera::{Camera2D, Camera2DOptions},
         mesh::{Material, MaterialLayoutBuilder, Mesh},
         render_pipeline::PipelineOptions,
         small::Transform,
@@ -35,13 +35,16 @@ impl CatApp for App {
         let window =
             context.create_window(WindowAttributes::default().with_title("Objects example"));
         let surface = context.create_surface_for_window(&window).unwrap();
-        let surface_size = context.get_renderer().get_surface_size(surface.clone());
-        let mut camera = Camera2D::new(Camera2DOptions {
-            transform: Transform::from_translation(Vec3::new(0., 0., 0.)),
-            surface: surface.clone(),
-            viewport_origin: Vec2::new(0.5, 0.5),
-            ..Default::default()
-        });
+        // let surface_size = context.get_renderer().get_surface_size(surface.clone());
+        let camera = Camera2D::new(
+            context.get_renderer(),
+            Camera2DOptions {
+                transform: Transform::from_translation(Vec3::new(0., 0., 0.)),
+                surface: surface.clone(),
+                viewport_origin: Vec2::new(0.5, 0.5),
+                ..Default::default()
+            },
+        );
         let texture = context
             .get_mut_renderer()
             .create_texture_from_bytes(&Filesystem::get().read("assets/happy-tree.png").unwrap())
@@ -54,10 +57,7 @@ impl CatApp for App {
             vertex_entry_point: String::from("vs_main"),
             fragment_entry_point: String::from("fs_main"),
             buffers: vec![Vertex::desc()],
-            bind_group_layouts: vec![camera
-                .get_render(context.get_mut_renderer(), surface_size)
-                .bindgroup
-                .layout()],
+            bind_group_layouts: vec![camera.get_bind_group().layout()],
             ..Default::default()
         });
         material_layout.register_uniform_at(0, ShaderStages::VERTEX_FRAGMENT);

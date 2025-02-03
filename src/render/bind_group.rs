@@ -1,4 +1,4 @@
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 
 use super::Renderer;
 
@@ -14,16 +14,8 @@ pub struct BindGroup {
 /// Bind group layout from wgpu BindGroupLayout
 #[derive(Clone)]
 pub struct BindGroupLayout {
-    layout: Arc<BindgroupLayoutInner>,
+    layout: Arc<wgpu::BindGroupLayout>,
 }
-struct BindgroupLayoutInner {
-    wgpu: RwLock<Option<wgpu::BindGroupLayout>>,
-    entries: Vec<BindGroupEntryLayout>,
-}
-impl BindgroupLayoutInner {
-    pub fn get_wgpu_layout()
-}
-
 impl BindGroupLayout {
     /// Creates new bind group layout use for reuse pipelines.
     pub fn new(renderer: &Renderer, entries: Vec<BindGroupEntryLayout>) -> Self {
@@ -36,19 +28,16 @@ impl BindGroupLayout {
                 count: None,
             });
         }
-        // let bind_group_layout =
-        //     renderer
-        //         .device
-        //         .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-        //             entries: &out_entries,
-        //             label: None,
-        //         });
+        let bind_group_layout =
+            renderer
+                .device
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    entries: &out_entries,
+                    label: None,
+                });
 
         Self {
-            layout: Arc::new(BindgroupLayoutInner {
-                wgpu: RwLock::new(None),
-                entries
-            }),
+            layout: Arc::new(bind_group_layout),
         }
     }
     /// Inner layout

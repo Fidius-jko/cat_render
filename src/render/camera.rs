@@ -1,5 +1,5 @@
 use glam::{Mat4, UVec2, Vec2};
-use wgpu::{BufferUsages, ShaderStages};
+use wgpu::{naga::proc::GlobalCtx, BufferUsages, ShaderStages};
 
 use super::{
     bind_group::{BindGroup, BindGroupEntryLayout, BindGroupEntryResources},
@@ -37,13 +37,14 @@ pub struct Camera2D {
     viewport_origin: Vec2,
     scale: f32,
     surface: SurfaceId,
-    render: Option<CameraRender>,
+    render: CameraRender,
     is_need_update: bool,
     area: Rect,
     window_size: UVec2,
 }
 impl Camera2D {
-    pub fn new(opt: Camera2DOptions) -> Self {
+    pub fn new(renderer: &Renderer, opt: Camera2DOptions) -> Self {
+        let uniform = CameraUniform { proj: [[0.; 4]; 4] };
         Self {
             transform: opt.transform,
             near: opt.near,
@@ -51,7 +52,7 @@ impl Camera2D {
             viewport_origin: opt.viewport_origin,
             scale: opt.scale,
             surface: opt.surface,
-            render: None,
+            render: CameraRender::new(renderer, uniform),
             area: Rect {
                 min: Vec2::default(),
                 max: Vec2::default(),
@@ -108,6 +109,9 @@ impl Camera2D {
             self.near,
         ) * transf.get_matrix()
     }
+    pub fn get_bind_group(&self) -> BindGroup {
+        self.render.bindgroup.clone()
+    }
     pub fn update_window_size(&mut self, width: u32, height: u32) {
         if self.window_size.x != width || self.window_size.y != height || self.is_need_update {
             self.is_need_update = false;
@@ -134,14 +138,11 @@ impl Camera for Camera2D {
         let uniform = CameraUniform {
             proj: self.generate_matrix().to_cols_array_2d(),
         };
-        if let Some(renderr) = self.render.as_mut() {
-            if self.is_need_update {
-                renderr.buffer.update(&renderer, vec![uniform]);
-            }
-        } else {
-            self.render = Some(CameraRender::new(&renderer, uniform));
+
+        if self.is_need_update {
+            self.render.buffer.update(&renderer, vec![uniform]);
         }
-        self.render.as_ref().unwrap()
+        &self.render
     }
     fn get_surface_id(&self) -> SurfaceId {
         self.surface.clone()
