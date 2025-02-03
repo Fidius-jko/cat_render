@@ -1,5 +1,5 @@
 use glam::{Mat4, UVec2, Vec2};
-use wgpu::{naga::proc::GlobalCtx, BufferUsages, ShaderStages};
+use wgpu::{BufferUsages, ShaderStages};
 
 use super::{
     bind_group::{BindGroup, BindGroupEntryLayout, BindGroupEntryResources},
@@ -43,7 +43,7 @@ pub struct Camera2D {
     window_size: UVec2,
 }
 impl Camera2D {
-    pub fn new(renderer: &Renderer, opt: Camera2DOptions) -> Self {
+    pub fn new(opt: Camera2DOptions) -> Self {
         let uniform = CameraUniform { proj: [[0.; 4]; 4] };
         Self {
             transform: opt.transform,
@@ -52,7 +52,7 @@ impl Camera2D {
             viewport_origin: opt.viewport_origin,
             scale: opt.scale,
             surface: opt.surface,
-            render: CameraRender::new(renderer, uniform),
+            render: CameraRender::new(uniform),
             area: Rect {
                 min: Vec2::default(),
                 max: Vec2::default(),
@@ -128,20 +128,16 @@ impl Camera2D {
                 self.scale * (projection_width - origin_x),
                 self.scale * (projection_height - origin_y),
             );
-            self.is_need_update = true;
+            let uniform = CameraUniform {
+                proj: self.generate_matrix().to_cols_array_2d(),
+            };
+            self.render.buffer.update(vec![uniform]);
         }
     }
 }
 impl Camera for Camera2D {
-    fn get_render(&mut self, renderer: &mut Renderer, surface_size: (u32, u32)) -> &CameraRender {
+    fn get_render(&mut self, _renderer: &mut Renderer, surface_size: (u32, u32)) -> &CameraRender {
         self.update_window_size(surface_size.0, surface_size.1);
-        let uniform = CameraUniform {
-            proj: self.generate_matrix().to_cols_array_2d(),
-        };
-
-        if self.is_need_update {
-            self.render.buffer.update(&renderer, vec![uniform]);
-        }
         &self.render
     }
     fn get_surface_id(&self) -> SurfaceId {
@@ -160,14 +156,13 @@ pub struct CameraRender {
     pub bindgroup: BindGroup,
 }
 impl CameraRender {
-    pub fn new(renderer: &Renderer, uniform: CameraUniform) -> Self {
-        let buf = renderer.create_buffer(
+    pub fn new(uniform: CameraUniform) -> Self {
+        let buf = Buffer::<CameraUniform>::new(
             vec![uniform],
             BufferUsages::UNIFORM | BufferUsages::COPY_DST,
         );
         Self {
             bindgroup: BindGroup::new(
-                renderer,
                 vec![BindGroupEntryLayout {
                     binding: 0,
                     visibility: ShaderStages::VERTEX_FRAGMENT,

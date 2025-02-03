@@ -9,7 +9,7 @@ use winit::{
     window::{Window, WindowId},
 };
 
-use super::Renderer;
+use super::UnMutRenderer;
 
 pub(crate) struct Surfaces<'a> {
     surfaces: HashMap<SurfaceId, CatSurface<'a>>,
@@ -60,22 +60,18 @@ impl<'a> Surfaces<'a> {
     pub(crate) fn get_mut_surface(&mut self, id: SurfaceId) -> &mut CatSurface<'a> {
         self.surfaces.get_mut(&id).unwrap()
     }
-    pub(crate) fn create_surface(
-        &mut self,
-        renderer: &mut Renderer,
-        window: Arc<Window>,
-    ) -> SurfaceId {
-        let surface = renderer
+    pub(crate) fn create_surface(&mut self, window: Arc<Window>) -> SurfaceId {
+        let surface = UnMutRenderer::get()
             .instance
             .create_surface(window.clone())
             .expect("Failed to create surface");
-        if !renderer.adapter.is_surface_supported(&surface) {
+        if !UnMutRenderer::get().adapter.is_surface_supported(&surface) {
             // WebGl2 requirement TODO
             todo!()
         }
         let size = window.inner_size();
 
-        let surface_caps = surface.get_capabilities(&renderer.adapter);
+        let surface_caps = surface.get_capabilities(&UnMutRenderer::get().adapter);
         // sRGB
         let surface_format = surface_caps
             .formats
@@ -109,12 +105,7 @@ impl<'a> Surfaces<'a> {
     pub(crate) fn get() -> MutexGuard<'a, Surfaces<'static>> {
         SURFACES.lock().unwrap()
     }
-    pub(crate) fn resize_window_surface(
-        &mut self,
-        renderer: &mut Renderer,
-        window: &WindowId,
-        new_size: PhysicalSize<u32>,
-    ) {
+    pub(crate) fn resize_window_surface(&mut self, window: &WindowId, new_size: PhysicalSize<u32>) {
         match self.window_surfaces.get(window) {
             Some(surface) => {
                 if new_size.width != 0 && new_size.height != 0 {
@@ -124,7 +115,7 @@ impl<'a> Surfaces<'a> {
                     surface.config.height = new_size.height;
                     surface
                         .wgpu_surface
-                        .configure(&renderer.device, &surface.config);
+                        .configure(&UnMutRenderer::get().device, &surface.config);
                 }
             }
             None => {}

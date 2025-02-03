@@ -13,7 +13,7 @@ pub use wgpu::{PipelineCompilationOptions, PipelineLayoutDescriptor};
 
 pub use wgpu::RenderPipeline;
 
-use super::Renderer;
+use super::UnMutRenderer;
 
 pub(crate) struct Pipelines {
     pipelines: HashMap<PipelineId, Pipeline>,
@@ -38,7 +38,6 @@ impl Pipelines {
         &mut self,
         format: TextureFormat,
         pipeline_id: PipelineId,
-        renderer: &Renderer,
     ) -> Rc<RenderPipeline> {
         let pipeline = self
             .pipelines
@@ -47,34 +46,33 @@ impl Pipelines {
         match pipeline.builded.get(&format) {
             Some(_) => {}
             None => {
-                let render_pipeline =
-                    renderer
-                        .device
-                        .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-                            label: Some("Render Pipeline"),
-                            layout: Some(&pipeline.render_pipeline_layout),
-                            vertex: wgpu::VertexState {
-                                module: &pipeline.vert_shader,
-                                entry_point: Some(&pipeline.options.vertex_entry_point),
-                                buffers: pipeline.options.buffers.as_slice(),
-                                compilation_options: PipelineCompilationOptions::default(),
-                            },
-                            fragment: Some(wgpu::FragmentState {
-                                module: &pipeline.frag_shader,
-                                entry_point: Some(&pipeline.options.fragment_entry_point),
-                                targets: &[Some(wgpu::ColorTargetState {
-                                    format,
-                                    blend: pipeline.options.frag_blend,
-                                    write_mask: pipeline.options.write_mask,
-                                })],
-                                compilation_options: PipelineCompilationOptions::default(),
-                            }),
-                            primitive: pipeline.options.primitive,
-                            depth_stencil: pipeline.options.depth_stencil.clone(),
-                            multisample: pipeline.options.multisample,
-                            multiview: None,
-                            cache: None,
-                        });
+                let render_pipeline = UnMutRenderer::get().device.create_render_pipeline(
+                    &wgpu::RenderPipelineDescriptor {
+                        label: Some("Render Pipeline"),
+                        layout: Some(&pipeline.render_pipeline_layout),
+                        vertex: wgpu::VertexState {
+                            module: &pipeline.vert_shader,
+                            entry_point: Some(&pipeline.options.vertex_entry_point),
+                            buffers: pipeline.options.buffers.as_slice(),
+                            compilation_options: PipelineCompilationOptions::default(),
+                        },
+                        fragment: Some(wgpu::FragmentState {
+                            module: &pipeline.frag_shader,
+                            entry_point: Some(&pipeline.options.fragment_entry_point),
+                            targets: &[Some(wgpu::ColorTargetState {
+                                format,
+                                blend: pipeline.options.frag_blend,
+                                write_mask: pipeline.options.write_mask,
+                            })],
+                            compilation_options: PipelineCompilationOptions::default(),
+                        }),
+                        primitive: pipeline.options.primitive,
+                        depth_stencil: pipeline.options.depth_stencil.clone(),
+                        multisample: pipeline.options.multisample,
+                        multiview: None,
+                        cache: None,
+                    },
+                );
                 pipeline
                     .builded
                     .insert(format.clone(), Rc::new(render_pipeline));
@@ -82,29 +80,34 @@ impl Pipelines {
         };
         pipeline.builded.get(&format).unwrap().clone()
     }
-    pub fn create_pipeline(&mut self, renderer: &Renderer, options: PipelineOptions) -> PipelineId {
-        let vert_shader = renderer
-            .device
-            .create_shader_module(wgpu::ShaderModuleDescriptor {
-                label: Some("Vertex Shader"),
-                source: wgpu::ShaderSource::Wgsl(options.vertex_shader.clone().into()),
-            });
-        let frag_shader = match options.fragment_shader {
-            Some(ref f) => renderer
-                .device
-                .create_shader_module(wgpu::ShaderModuleDescriptor {
-                    label: Some("Vertex Shader"),
-                    source: wgpu::ShaderSource::Wgsl(f.into()),
-                }),
-            None => renderer
+    pub fn create_pipeline(&mut self, options: PipelineOptions) -> PipelineId {
+        let vert_shader =
+            UnMutRenderer::get()
                 .device
                 .create_shader_module(wgpu::ShaderModuleDescriptor {
                     label: Some("Vertex Shader"),
                     source: wgpu::ShaderSource::Wgsl(options.vertex_shader.clone().into()),
-                }),
+                });
+        let frag_shader = match options.fragment_shader {
+            Some(ref f) => {
+                UnMutRenderer::get()
+                    .device
+                    .create_shader_module(wgpu::ShaderModuleDescriptor {
+                        label: Some("Vertex Shader"),
+                        source: wgpu::ShaderSource::Wgsl(f.into()),
+                    })
+            }
+            None => {
+                UnMutRenderer::get()
+                    .device
+                    .create_shader_module(wgpu::ShaderModuleDescriptor {
+                        label: Some("Vertex Shader"),
+                        source: wgpu::ShaderSource::Wgsl(options.vertex_shader.clone().into()),
+                    })
+            }
         };
         let render_pipeline_layout =
-            renderer
+            UnMutRenderer::get()
                 .device
                 .create_pipeline_layout(&PipelineLayoutDescriptor {
                     label: Some("Pipeline layout"),

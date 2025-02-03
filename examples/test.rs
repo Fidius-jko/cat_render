@@ -7,13 +7,10 @@ use cat_render::{
         render_pipeline::PipelineOptions,
         small::Transform,
     },
-    utils::fs::Filesystem,
+    utils::{fs::Filesystem, input::Input},
 };
 use wgpu::ShaderStages;
-use winit::{
-    event::{KeyEvent, WindowEvent},
-    keyboard::{KeyCode, PhysicalKey},
-};
+use winit::{event::WindowEvent, keyboard::KeyCode};
 
 fn main() {
     let _ = App::run();
@@ -23,6 +20,7 @@ pub struct App {
     material: Material,
     mesh: Mesh<Vertex>,
     camera: Camera2D,
+    input: Input,
 }
 
 impl CatApp for App {
@@ -35,16 +33,12 @@ impl CatApp for App {
         let window =
             context.create_window(WindowAttributes::default().with_title("Objects example"));
         let surface = context.create_surface_for_window(&window).unwrap();
-        // let surface_size = context.get_renderer().get_surface_size(surface.clone());
-        let camera = Camera2D::new(
-            context.get_renderer(),
-            Camera2DOptions {
-                transform: Transform::from_translation(Vec3::new(0., 0., 0.)),
-                surface: surface.clone(),
-                viewport_origin: Vec2::new(0.5, 0.5),
-                ..Default::default()
-            },
-        );
+        let camera = Camera2D::new(Camera2DOptions {
+            transform: Transform::from_translation(Vec3::new(0., 0., 0.)),
+            surface: surface.clone(),
+            viewport_origin: Vec2::new(0.5, 0.5),
+            ..Default::default()
+        });
         let texture = context
             .get_mut_renderer()
             .create_texture_from_bytes(&Filesystem::get().read("assets/happy-tree.png").unwrap())
@@ -68,7 +62,6 @@ impl CatApp for App {
             * glam::Mat4::from_translation(Vec3::new(0.0, -5.0, 0.));
 
         let material = Material::from_layout(
-            context.get_renderer(),
             &material_layout,
             vec![(
                 0,
@@ -93,51 +86,40 @@ impl CatApp for App {
             material,
             mesh,
             camera,
+            input: Input::new(),
         }
     }
-    fn update(&mut self, _context: &mut AppContext) {}
+    fn update(&mut self, _context: &mut AppContext) {
+        if self.input.is_pressed_key(KeyCode::KeyO) {
+            self.camera.set_scale(self.camera.get_scale() - 0.1);
+        }
+        if self.input.is_pressed_key(KeyCode::KeyI) {
+            self.camera.set_scale(self.camera.get_scale() + 0.1);
+        }
+        let mut trans = Vec3::splat(0.);
+        if self.input.is_down_key(KeyCode::KeyA) {
+            trans.x -= 1.;
+        }
+        if self.input.is_down_key(KeyCode::KeyD) {
+            trans.x += 1.;
+        }
+        if self.input.is_down_key(KeyCode::KeyW) {
+            trans.y += 1.;
+        }
+        if self.input.is_down_key(KeyCode::KeyS) {
+            trans.y -= 1.;
+        }
+        let mut transform = self.camera.get_transform();
+        const SPEED: f32 = 1.;
+        transform.translation += trans * SPEED;
+        self.camera.set_transform(transform);
+        self.input.tick();
+    }
     fn window_event(&mut self, event: WindowEvent, context: &mut AppContext, _window: CatWindow) {
+        self.input.window_event(event.clone());
         match event {
             WindowEvent::CloseRequested => {
                 context.exit();
-            }
-            WindowEvent::KeyboardInput {
-                device_id: _,
-                event,
-                is_synthetic: _,
-            } => {
-                let KeyEvent {
-                    physical_key,
-                    logical_key: _,
-                    text: _,
-                    location: _,
-                    state: _,
-                    repeat,
-                    ..
-                } = event;
-                if physical_key == PhysicalKey::Code(KeyCode::KeyO) && !repeat {
-                    self.camera.set_scale(self.camera.get_scale() - 0.1);
-                }
-                if physical_key == PhysicalKey::Code(KeyCode::KeyI) && !repeat {
-                    self.camera.set_scale(self.camera.get_scale() + 0.1);
-                }
-                let mut trans = Vec3::splat(0.);
-                if physical_key == PhysicalKey::Code(KeyCode::KeyA) {
-                    trans.x -= 1.;
-                }
-                if physical_key == PhysicalKey::Code(KeyCode::KeyD) {
-                    trans.x += 1.;
-                }
-                if physical_key == PhysicalKey::Code(KeyCode::KeyW) {
-                    trans.y += 1.;
-                }
-                if physical_key == PhysicalKey::Code(KeyCode::KeyS) {
-                    trans.y -= 1.;
-                }
-                let mut transform = self.camera.get_transform();
-                const SPEED: f32 = 10.;
-                transform.translation += trans * SPEED;
-                self.camera.set_transform(transform);
             }
             _ => {}
         }

@@ -16,63 +16,39 @@ use super::{
 /// Abstraction of buffers for index and verticies need material
 pub struct Mesh<V: Pod + Zeroable + Clone> {
     vertices: Vec<V>,
-    buffer: Option<Buffer<V>>,
+    buffer: Buffer<V>,
     indicies: Vec<u16>,
-    index_buffer: Option<Buffer<u16>>,
-    is_need_update_buf: bool,
-    is_need_update_index_buf: bool,
+    index_buffer: Buffer<u16>,
 }
 
 impl<V: Pod + Zeroable> Mesh<V> {
     /// New buffer
     pub fn new(vertices: Vec<V>, indicies: Vec<u16>) -> Self {
         Self {
+            buffer: Buffer::new(
+                vertices.clone(),
+                BufferUsages::VERTEX | BufferUsages::COPY_DST,
+            ),
+            index_buffer: Buffer::new(
+                indicies.clone(),
+                BufferUsages::INDEX | BufferUsages::COPY_DST,
+            ),
             vertices,
             indicies,
-            buffer: None,
-            index_buffer: None,
-            is_need_update_buf: false,
-            is_need_update_index_buf: false,
         }
     }
     pub fn update(&mut self, vertices: Vec<V>, indicies: Vec<u16>) {
         self.vertices = vertices;
         self.indicies = indicies;
-        self.is_need_update_buf = true;
-        self.is_need_update_index_buf = true;
-    }
-    /// Init buffers or updates it
-    pub fn update_if_need(&mut self, renderer: &Renderer) {
-        if let None = self.buffer {
-            self.buffer = Some(renderer.create_buffer(
-                self.vertices.clone(),
-                BufferUsages::VERTEX | BufferUsages::COPY_DST,
-            ));
-        }
-        if let None = self.index_buffer {
-            self.index_buffer = Some(renderer.create_buffer(
-                self.indicies.clone(),
-                BufferUsages::INDEX | BufferUsages::COPY_DST,
-            ));
-        }
-        if self.is_need_update_buf {
-            renderer.update_buffer(self.vertices.clone(), self.buffer.as_mut().unwrap());
-        }
-        if self.is_need_update_index_buf {
-            renderer.update_buffer(self.indicies.clone(), self.index_buffer.as_mut().unwrap());
-        }
+        self.buffer.update(self.vertices.clone());
+        self.index_buffer.update(self.indicies.clone());
     }
     /// Draw!
     pub fn draw_with_material(&mut self, render: &mut Render, material: &Material) {
-        self.update_if_need(render.get_renderer());
         material.use_me(render, 0);
-        render.set_vertex_buffer(self.buffer.as_ref().unwrap(), 0, ..);
-        render.set_index_buffer(self.index_buffer.as_ref().unwrap(), ..);
-        render.draw_indexed(
-            0..self.index_buffer.as_ref().unwrap().get_vertices_number(),
-            0,
-            0..1,
-        );
+        render.set_vertex_buffer(&self.buffer, 0, ..);
+        render.set_index_buffer(&self.index_buffer, ..);
+        render.draw_indexed(0..self.index_buffer.get_vertices_number(), 0, 0..1);
     }
 }
 
@@ -131,7 +107,7 @@ impl MaterialLayoutBuilder {
                 },
             });
         }
-        let bind_group_layout = BindGroupLayout::new(&renderer, entries);
+        let bind_group_layout = BindGroupLayout::new(entries);
         let mut bgl = vec![bind_group_layout.layout()];
         bgl.append(&mut self.pipeline_options.bind_group_layouts);
         self.pipeline_options.bind_group_layouts = bgl;
@@ -162,7 +138,6 @@ impl Material {
     /// uniforms -> shader -> @group(use_buffer_value) @binding(item[0] (u32))
     /// textures same but first u32 is view and second sampler
     pub fn from_layout(
-        renderer: &Renderer,
         layout: &MaterialLayout,
         uniforms: Vec<(u32, Vec<u8>)>,
         textures: Vec<(u32, u32, Texture)>,
@@ -171,7 +146,6 @@ impl Material {
         let mut uniform_buffers: HashMap<u32, UnTypedBuffer> = HashMap::new();
         for (binding, bytes) in uniforms.iter() {
             let buf = UnTypedBuffer::new(
-                renderer,
                 vec![bytes.clone()],
                 BufferUsages::UNIFORM | BufferUsages::COPY_DST,
             );
@@ -198,7 +172,7 @@ impl Material {
                 resource: wgpu::BindingResource::Sampler(&texture.sampler),
             });
         }
-        let bind_group = BindGroup::new_from_layout(renderer, res, &layout.bindgroup);
+        let bind_group = BindGroup::new_from_layout(res, &layout.bindgroup);
         Self {
             bindgroup: bind_group,
             pipeline: layout.pipeline.clone(),
@@ -206,14 +180,14 @@ impl Material {
         }
     }
     /// Update uniform
-    pub fn update_uniform(&mut self, slot: u32, bytes: Vec<u8>, renderer: &Renderer) {
+    pub fn update_uniform(&mut self, slot: u32, bytes: Vec<u8>) {
         self.uniform_buffers
             .get_mut(&slot)
             .expect("No uniform on slot!")
-            .update(renderer, vec![bytes]);
+            .update(vec![bytes]);
     }
     /// Globaly change textures
-    pub fn change_textures(&mut self, textures: Vec<(u32, u32, Texture)>, renderer: &Renderer) {
+    pub fn change_textures(&mut self, textures: Vec<(u32, u32, Texture)>) {
         let mut res = Vec::new();
 
         for (binding, buffer) in self.uniform_buffers.iter() {
@@ -232,7 +206,7 @@ impl Material {
                 resource: wgpu::BindingResource::Sampler(&texture.sampler),
             });
         }
-        self.bindgroup = BindGroup::new_from_layout(renderer, res, &self.bindgroup.cat_layout());
+        self.bindgroup = BindGroup::new_from_layout(res, &self.bindgroup.cat_layout());
     }
     /// Need for render
     pub fn use_me(&self, render: &mut Render, slot: u32) {

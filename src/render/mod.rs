@@ -21,8 +21,8 @@ use render_pipeline::{PipelineId, PipelineOptions, Pipelines};
 use surface::{SurfaceId, Surfaces};
 use texture::Texture;
 
+use std::sync::LazyLock;
 use std::{
-    mem::replace,
     ops::{Range, RangeBounds},
     rc::Rc,
     sync::Arc,
@@ -38,12 +38,66 @@ use winit::{
     window::{Window, WindowId},
 };
 
-pub struct Renderer {
-    pipelines: Pipelines,
-    instance: Instance,
+pub struct UnMutRenderer {
+    pub(crate) instance: Instance,
     pub(crate) device: Device,
     pub(crate) queue: Queue,
     pub(crate) adapter: Adapter,
+}
+impl UnMutRenderer {
+    fn new() -> Self {
+        pollster::block_on(Self::new_async())
+    }
+    async fn new_async() -> Self {
+        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
+            #[cfg(not(target_arch = "wasm32"))]
+            backends: wgpu::Backends::PRIMARY,
+            #[cfg(target_arch = "wasm32")]
+            backends: wgpu::Backends::NOT_SUPPPORT,
+            ..Default::default()
+        });
+        let adapter = instance
+            .request_adapter(&wgpu::RequestAdapterOptions {
+                power_preference: wgpu::PowerPreference::default(),
+                compatible_surface: None,
+                force_fallback_adapter: false,
+            })
+            .await
+            .unwrap();
+        let (device, queue) = adapter
+            .request_device(
+                &wgpu::DeviceDescriptor {
+                    required_features: wgpu::Features::empty(),
+                    // WebGL doesn't support all of wgpu's features, so if
+                    // we're building for the web, we'll have to disable some.
+                    required_limits: if cfg!(target_arch = "wasm32") {
+                        wgpu::Limits::downlevel_webgl2_defaults()
+                    } else {
+                        wgpu::Limits::default()
+                    },
+                    label: None,
+                    memory_hints: Default::default(),
+                },
+                None, // Trace path
+            )
+            .await
+            .unwrap();
+        Self {
+            instance,
+            device,
+            queue,
+            adapter,
+        }
+    }
+    pub fn get() -> Arc<UnMutRenderer> {
+        UN_MUT_RENDERER.clone()
+    }
+}
+static UN_MUT_RENDERER: LazyLock<Arc<UnMutRenderer>> =
+    LazyLock::new(|| Arc::new(UnMutRenderer::new()));
+
+pub struct Renderer {
+    pipelines: Pipelines,
     pub(crate) needs_exit: bool,
 }
 
@@ -156,28 +210,28 @@ impl Renderer {
         layout: Vec<BindGroupEntryLayout>,
         res: Vec<BindGroupEntryResources>,
     ) -> BindGroup {
-        BindGroup::new(self, layout, res)
+        BindGroup::new(layout, res)
     }
     /// Create texture
     pub fn create_texture_from_bytes(&mut self, bytes: &[u8]) -> Result<Texture, anyhow::Error> {
-        Texture::from_bytes(self, bytes)
+        Texture::from_bytes(bytes)
     }
     /// Create texture from `image` crate
     pub fn create_texture_from_image(
         &mut self,
         img: &DynamicImage,
     ) -> Result<Texture, anyhow::Error> {
-        Texture::from_image(self, img)
+        Texture::from_image(img)
     }
 
     pub(crate) fn create_surface(&mut self, window: Arc<Window>) -> SurfaceId {
-        Surfaces::get().create_surface(self, window)
+        Surfaces::get().create_surface(window)
     }
     pub(crate) fn get_surface(&self, id: SurfaceId) -> Arc<Surface<'_>> {
         Surfaces::get().get_surface(id).wgpu_surface.clone()
     }
     pub(crate) fn on_resize(&mut self, window_id: &WindowId, new_size: PhysicalSize<u32>) {
-        Surfaces::get().resize_window_surface(self, window_id, new_size);
+        Surfaces::get().resize_window_surface(window_id, new_size);
     }
     pub fn get_surface_size(&self, surface: SurfaceId) -> (u32, u32) {
         let size = Surfaces::get().get_surface(surface).size;
@@ -186,7 +240,7 @@ impl Renderer {
 
     /// Update buffer
     pub fn update_buffer<V: Pod + Zeroable>(&self, vertices: Vec<V>, buffer: &mut Buffer<V>) {
-        buffer.update(self, vertices);
+        buffer.update(vertices);
     }
     /// Create buffer
     pub fn create_buffer<V: Pod + Zeroable>(
@@ -194,7 +248,7 @@ impl Renderer {
         vertices: Vec<V>,
         usage: BufferUsages,
     ) -> Buffer<V> {
-        Buffer::<V>::new(self, vertices, usage)
+        Buffer::<V>::new(vertices, usage)
     }
     /// Is exists surface
     pub fn exists_surface(&self, surface: SurfaceId) -> bool {
@@ -202,10 +256,7 @@ impl Renderer {
     }
     /// Create pipeline
     pub fn create_pipeline(&mut self, options: PipelineOptions) -> PipelineId {
-        let mut pipelines = replace(&mut self.pipelines, Pipelines::new());
-        let id = pipelines.create_pipeline(&self, options);
-        let _ = replace(&mut self.pipelines, pipelines);
-        return id;
+        self.pipelines.create_pipeline(options)
     }
     /// Get pipeline
     pub fn get_pipeline(
@@ -213,10 +264,7 @@ impl Renderer {
         format: TextureFormat,
         pipeline_id: PipelineId,
     ) -> Rc<RenderPipeline> {
-        let mut pipelines = replace(&mut self.pipelines, Pipelines::new());
-        let pipeline = pipelines.get_pipeline_for_surface(format, pipeline_id, self);
-        let _ = replace(&mut self.pipelines, pipelines);
-        return pipeline;
+        self.pipelines.get_pipeline_for_surface(format, pipeline_id)
     }
     pub fn start_render_for_camera<C: Camera>(
         &mut self,
@@ -240,6 +288,7 @@ impl Renderer {
         clear_color: Option<Color>,
         mut commands_sender: impl FnMut(&mut Render),
     ) {
+        let renderer = UnMutRenderer::get();
         if !self.exists_surface(surface_id.clone()) {
             log::error!("Surface doesn't exists {:?}", surface_id);
             log::warn!("Render stoped.");
@@ -279,7 +328,7 @@ impl Renderer {
         let view = output
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
-        let mut encoder = self
+        let mut encoder = renderer
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {
                 label: Some("Render Encoder"),
@@ -317,51 +366,14 @@ impl Renderer {
             };
             (commands_sender)(&mut render);
         }
-        self.queue.submit(std::iter::once(encoder.finish()));
+        renderer.queue.submit(std::iter::once(encoder.finish()));
         output.present();
 
         self.needs_exit = needs_exit;
     }
 
     pub(crate) async fn new() -> Self {
-        let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
-            #[cfg(not(target_arch = "wasm32"))]
-            backends: wgpu::Backends::PRIMARY,
-            #[cfg(target_arch = "wasm32")]
-            backends: wgpu::Backends::NOT_SUPPPORT,
-            ..Default::default()
-        });
-        let adapter = instance
-            .request_adapter(&wgpu::RequestAdapterOptions {
-                power_preference: wgpu::PowerPreference::default(),
-                compatible_surface: None,
-                force_fallback_adapter: false,
-            })
-            .await
-            .unwrap();
-        let (device, queue) = adapter
-            .request_device(
-                &wgpu::DeviceDescriptor {
-                    required_features: wgpu::Features::empty(),
-                    // WebGL doesn't support all of wgpu's features, so if
-                    // we're building for the web, we'll have to disable some.
-                    required_limits: if cfg!(target_arch = "wasm32") {
-                        wgpu::Limits::downlevel_webgl2_defaults()
-                    } else {
-                        wgpu::Limits::default()
-                    },
-                    label: None,
-                    memory_hints: Default::default(),
-                },
-                None, // Trace path
-            )
-            .await
-            .unwrap();
         Self {
-            instance,
-            device,
-            queue,
-            adapter,
             needs_exit: false,
             pipelines: Pipelines::new(),
         }

@@ -1,16 +1,15 @@
-use std::sync::MutexGuard;
-
 use bytemuck::{Pod, Zeroable};
-use glam::{Mat4, Vec2, Vec3};
+use glam::Vec2;
 use wgpu::ShaderStages;
 
 use crate::{
     context::{AppContext, Resources},
     render::{
-        camera::{Camera, Camera2D, CameraRender},
+        bind_group::BindGroup,
+        camera::Camera2D,
         mesh::{Material, MaterialLayout, MaterialLayoutBuilder, Mesh},
         render_pipeline::PipelineOptions,
-        small::{Rect, Transform},
+        small::Transform,
         texture::Texture,
         Render, Renderer,
     },
@@ -32,13 +31,13 @@ impl Sprite {
         texture: Texture,
     ) -> Self {
         let size = Vec2::new(width, height);
-        let surface_size = context
-            .get_renderer()
-            .get_surface_size(camera.get_surface_id().clone())
-            .clone();
-        let render = camera.get_render(context.get_mut_renderer(), surface_size);
-        let render =
-            SpriteRender::new(context.get_mut_renderer(), size, render, transform, texture);
+        let render = SpriteRender::new(
+            context.get_mut_renderer(),
+            size,
+            camera.get_bind_group(),
+            transform,
+            texture,
+        );
         Self {
             size,
             transform,
@@ -62,7 +61,7 @@ impl SpriteRender {
     pub fn new(
         renderer: &mut Renderer,
         size: Vec2,
-        camera: &CameraRender,
+        camera: BindGroup,
         transform: Transform,
         texture: Texture,
     ) -> Self {
@@ -72,7 +71,6 @@ impl SpriteRender {
             view_proj: transform.get_matrix().to_cols_array_2d(),
         };
         let material = Material::from_layout(
-            &renderer,
             &layout.material_layout,
             vec![(0, bytemuck::bytes_of(&uniform).to_vec())],
             vec![(1, 2, texture)],
@@ -108,7 +106,7 @@ pub struct SpriteLayout {
 }
 
 impl SpriteLayout {
-    pub fn get_or_init(renderer: &mut Renderer, camera: &CameraRender) -> Self {
+    pub fn get_or_init(renderer: &mut Renderer, camera: BindGroup) -> Self {
         let mut res = Resources::get_me();
         match res.get::<Self>() {
             Some(r) => return r.clone(),
@@ -117,7 +115,7 @@ impl SpriteLayout {
                     vertex_shader: include_str!("sprite_shader.wgsl").to_string(),
                     vertex_entry_point: String::from("vs_main"),
                     fragment_entry_point: String::from("fs_main"),
-                    bind_group_layouts: vec![camera.bindgroup.layout()],
+                    bind_group_layouts: vec![camera.layout()],
                     buffers: vec![Vertex::desc()],
                     ..Default::default()
                 });

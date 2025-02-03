@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use super::Renderer;
+use super::UnMutRenderer;
 
 /// Bind group from wgpu BindGroup
 #[derive(Clone)]
@@ -18,7 +18,7 @@ pub struct BindGroupLayout {
 }
 impl BindGroupLayout {
     /// Creates new bind group layout use for reuse pipelines.
-    pub fn new(renderer: &Renderer, entries: Vec<BindGroupEntryLayout>) -> Self {
+    pub fn new(entries: Vec<BindGroupEntryLayout>) -> Self {
         let mut out_entries = Vec::new();
         for entry in entries.iter() {
             out_entries.push(wgpu::BindGroupLayoutEntry {
@@ -28,13 +28,12 @@ impl BindGroupLayout {
                 count: None,
             });
         }
-        let bind_group_layout =
-            renderer
-                .device
-                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                    entries: &out_entries,
-                    label: None,
-                });
+        let bind_group_layout = UnMutRenderer::get().device.create_bind_group_layout(
+            &wgpu::BindGroupLayoutDescriptor {
+                entries: &out_entries,
+                label: None,
+            },
+        );
 
         Self {
             layout: Arc::new(bind_group_layout),
@@ -49,7 +48,6 @@ impl BindGroupLayout {
 impl BindGroup {
     /// Creates bind group
     pub fn new_from_layout(
-        renderer: &Renderer,
         resources: Vec<BindGroupEntryResources>,
         layout: &BindGroupLayout,
     ) -> Self {
@@ -60,25 +58,22 @@ impl BindGroup {
                 resource: entry.resource,
             });
         }
-        let bind_group = renderer
-            .device
-            .create_bind_group(&wgpu::BindGroupDescriptor {
-                label: None,
-                layout: &layout.layout,
-                entries: &out_entries,
-            });
+        let bind_group =
+            UnMutRenderer::get()
+                .device
+                .create_bind_group(&wgpu::BindGroupDescriptor {
+                    label: None,
+                    layout: &layout.layout,
+                    entries: &out_entries,
+                });
         Self {
             group: bind_group,
             layout: layout.layout.clone(),
         }
     }
     /// Creates bind group with new layout
-    pub fn new(
-        renderer: &Renderer,
-        layout: Vec<BindGroupEntryLayout>,
-        resources: Vec<BindGroupEntryResources>,
-    ) -> Self {
-        Self::new_from_layout(renderer, resources, &BindGroupLayout::new(renderer, layout))
+    pub fn new(layout: Vec<BindGroupEntryLayout>, resources: Vec<BindGroupEntryResources>) -> Self {
+        Self::new_from_layout(resources, &BindGroupLayout::new(layout))
     }
     /// Inner layout
     pub fn layout(&self) -> Arc<wgpu::BindGroupLayout> {

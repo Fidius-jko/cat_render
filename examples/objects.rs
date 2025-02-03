@@ -31,15 +31,12 @@ impl CatApp for App {
         let window =
             context.create_window(WindowAttributes::default().with_title("Objects example"));
         let surface = context.create_surface_for_window(&window).unwrap();
-        let mut camera = Camera2D::new(
-            context.get_renderer(),
-            Camera2DOptions {
-                transform: Transform::from_translation(Vec3::new(0., 0., 0.)),
-                surface: surface.clone(),
-                viewport_origin: Vec2::new(0.5, 0.5),
-                ..Default::default()
-            },
-        );
+        let mut camera = Camera2D::new(Camera2DOptions {
+            transform: Transform::from_translation(Vec3::new(0., 0., 0.)),
+            surface: surface.clone(),
+            viewport_origin: Vec2::new(0.5, 0.5),
+            ..Default::default()
+        });
         let texture = context
             .get_mut_renderer()
             .create_texture_from_bytes(&Filesystem::get().read("assets/happy-tree.png").unwrap())

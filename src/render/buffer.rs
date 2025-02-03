@@ -8,7 +8,7 @@ use std::{
 use bytemuck::{Pod, Zeroable};
 use wgpu::{util::DeviceExt, BindingResource, BufferUsages};
 
-use super::Renderer;
+use super::UnMutRenderer;
 
 /// Buffer with V as Vertex
 #[derive(Clone)]
@@ -20,14 +20,15 @@ pub struct Buffer<V: bytemuck::Pod + bytemuck::Zeroable> {
 
 impl<V: Pod + Zeroable> Buffer<V> {
     /// Creates new buffer
-    pub fn new(renderer: &Renderer, vertices: Vec<V>, usage: BufferUsages) -> Self {
-        let buffer = renderer
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Buffer"),
-                contents: bytemuck::cast_slice(&vertices),
-                usage,
-            });
+    pub fn new(vertices: Vec<V>, usage: BufferUsages) -> Self {
+        let buffer =
+            UnMutRenderer::get()
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Buffer"),
+                    contents: bytemuck::cast_slice(&vertices),
+                    usage,
+                });
         Self {
             wgpu_buffer: buffer,
             vertices_number: Arc::new(Mutex::new(vertices.len() as u32)),
@@ -36,11 +37,13 @@ impl<V: Pod + Zeroable> Buffer<V> {
     }
     /// Update buffer
     /// PANICS if usage is not BufferUsages::COPY_DST
-    pub fn update(&mut self, renderer: &Renderer, vertices: Vec<V>) {
+    pub fn update(&mut self, vertices: Vec<V>) {
         *self.vertices_number.lock().unwrap() = vertices.len() as u32;
-        renderer
-            .queue
-            .write_buffer(&self.wgpu_buffer, 0, bytemuck::cast_slice(&vertices));
+        UnMutRenderer::get().queue.write_buffer(
+            &self.wgpu_buffer,
+            0,
+            bytemuck::cast_slice(&vertices),
+        );
     }
     /// Number of vertices
     pub fn get_vertices_number(&self) -> u32 {
@@ -59,27 +62,28 @@ pub struct UnTypedBuffer {
 
 impl UnTypedBuffer {
     /// See Buffer
-    pub fn new(renderer: &Renderer, vertices_bytes: Vec<Vec<u8>>, usage: BufferUsages) -> Self {
-        let buffer = renderer
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Buffer"),
-                contents: &vertices_bytes
-                    .iter()
-                    .cloned()
-                    .flatten()
-                    .collect::<Vec<u8>>(),
-                usage,
-            });
+    pub fn new(vertices_bytes: Vec<Vec<u8>>, usage: BufferUsages) -> Self {
+        let buffer =
+            UnMutRenderer::get()
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Buffer"),
+                    contents: &vertices_bytes
+                        .iter()
+                        .cloned()
+                        .flatten()
+                        .collect::<Vec<u8>>(),
+                    usage,
+                });
         Self {
             wgpu_buffer: buffer,
             vertices_number: Arc::new(Mutex::new(vertices_bytes.len() as u32)),
         }
     }
     /// See Buffer
-    pub fn update(&mut self, renderer: &Renderer, vertices_bytes: Vec<Vec<u8>>) {
+    pub fn update(&mut self, vertices_bytes: Vec<Vec<u8>>) {
         *self.vertices_number.lock().unwrap() = vertices_bytes.len() as u32;
-        renderer.queue.write_buffer(
+        UnMutRenderer::get().queue.write_buffer(
             &self.wgpu_buffer,
             0,
             &vertices_bytes
