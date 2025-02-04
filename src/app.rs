@@ -7,7 +7,7 @@ use crate::{
 pub trait CatApp {
     fn config() -> AppConfig;
 
-    fn update(&mut self, context: &mut AppContext);
+    fn update(&mut self, context: &mut AppContext, delta: f32);
     fn new(context: &mut AppContext) -> Self;
     fn window_event(&mut self, event: WindowEvent, context: &mut AppContext, window: CatWindow);
     fn render(&mut self, render: &mut Renderer);

@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use cat_render::{
     prelude::*,
     render::{
@@ -5,7 +7,7 @@ use cat_render::{
         small::Transform,
         texture::Texture,
     },
-    utils::{fs::Filesystem, input::Input, render::sprite::Sprite},
+    utils::{fs::Filesystem, input::Input, render::sprite::Sprite, timer::Timer},
 };
 use winit::keyboard::KeyCode;
 
@@ -14,19 +16,21 @@ fn main() {
 }
 
 pub struct App {
-    sprite: Sprite,
-    sprite2: Sprite,
+    sprites: Vec<Sprite>,
     camera: Camera2D,
     input: Input,
+    timer: Timer,
+    fps_cnt: u32,
 }
 
 impl CatApp for App {
     fn config() -> AppConfig {
         AppConfig {
-            loop_type: LoopType::Active,
+            loop_type: LoopType::Waiting,
         }
     }
     fn new(context: &mut AppContext) -> Self {
+        context.set_fps(60);
         let window =
             context.create_window(WindowAttributes::default().with_title("Objects example"));
         let surface = context.create_surface_for_window(&window).unwrap();
@@ -38,40 +42,39 @@ impl CatApp for App {
         });
         let texture =
             Texture::from_bytes(&Filesystem::get().read("assets/happy-tree.png").unwrap()).unwrap();
-        let sprite = Sprite::new(
-            context,
-            &mut camera,
-            100.,
-            100.,
-            Transform {
-                rotation: Vec3::new(0., 0., 0.),
-                scale: Vec3::splat(4.),
-                translation: Vec3::new(50., 50., 0.),
-                ..Default::default()
-            },
-            texture.clone(),
-        );
-        let sprite2 = Sprite::new(
-            context,
-            &mut camera,
-            50.,
-            50.,
-            Transform {
-                rotation: Vec3::new(0., 0., 0.),
-                scale: Vec3::splat(4.),
-                translation: Vec3::new(50., 50., 0.),
-                ..Default::default()
-            },
-            texture,
-        );
+        const SIZE: usize = 100;
+        let mut sprites = Vec::with_capacity(SIZE);
+        for i in 0..SIZE {
+            let sprite = Sprite::new(
+                context,
+                &mut camera,
+                100.,
+                100.,
+                Transform {
+                    rotation: Vec3::new(0., 0., 0.),
+                    scale: Vec3::splat(4.),
+                    translation: Vec3::new(50. + i as f32 * 5., 50., 0.),
+                    ..Default::default()
+                },
+                texture.clone(),
+            );
+            sprites.push(sprite);
+        }
         Self {
             camera,
-            sprite,
-            sprite2,
+            sprites,
             input: Input::new(),
+            timer: Timer::new(Duration::from_secs_f32(1.)),
+            fps_cnt: 0,
         }
     }
     fn update(&mut self, _context: &mut AppContext, _delta: f32) {
+        self.fps_cnt += 1;
+        if self.timer.is_ended() {
+            self.timer.reset();
+            println!("{}", self.fps_cnt);
+            self.fps_cnt = 0;
+        }
         if self.input.is_pressed_key(KeyCode::KeyO) {
             self.camera.set_scale(self.camera.get_scale() - 0.1);
         }
@@ -92,7 +95,7 @@ impl CatApp for App {
             trans.y -= 1.;
         }
         let mut transform = self.camera.get_transform();
-        const SPEED: f32 = 1.;
+        const SPEED: f32 = 10.;
         transform.translation += trans * SPEED;
         self.camera.set_transform(transform);
         self.input.tick();
@@ -111,8 +114,9 @@ impl CatApp for App {
             &mut self.camera,
             Some(Color::srgb_255(200., 200., 200.)),
             |render| {
-                self.sprite.render(render);
-                self.sprite2.render(render);
+                for sprite in self.sprites.iter_mut() {
+                    sprite.render(render);
+                }
             },
         );
     }

@@ -89,7 +89,7 @@ impl CatApp for App {
             input: Input::new(),
         }
     }
-    fn update(&mut self, _context: &mut AppContext) {
+    fn update(&mut self, _context: &mut AppContext, _delta: f32) {
         if self.input.is_pressed_key(KeyCode::KeyO) {
             self.camera.set_scale(self.camera.get_scale() - 0.1);
         }
