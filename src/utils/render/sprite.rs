@@ -1,6 +1,6 @@
 use bytemuck::{Pod, Zeroable};
 use glam::Vec2;
-use wgpu::ShaderStages;
+use wgpu::{BlendState, ShaderStages};
 
 use crate::{
     context::{AppContext, Resources},
@@ -22,6 +22,9 @@ pub struct Sprite {
 }
 
 impl Sprite {
+    pub fn get_transform(&self) -> Transform {
+        self.transform.clone()
+    }
     pub fn new(
         context: &mut AppContext,
         camera: &mut Camera2D,
@@ -44,11 +47,23 @@ impl Sprite {
             render,
         }
     }
+    pub fn update_size(&mut self, new_size: Vec2) {
+        self.size = new_size;
+        self.render.update_size(new_size);
+    }
+    pub fn update_transform(&mut self, transform: Transform) {
+        self.transform = transform;
+        self.render.update_transform(transform);
+    }
     pub fn render(&mut self, render: &mut Render) {
-        render.use_camera_uniform_at(1);
-        self.render
-            .mesh
-            .draw_with_material(render, &self.render.material);
+        // let proj = render.get_projection();
+        let need_render = true;
+        if need_render {
+            render.use_camera_uniform_at(1);
+            self.render
+                .mesh
+                .draw_with_material(render, &self.render.material);
+        }
     }
 }
 
@@ -98,6 +113,36 @@ impl SpriteRender {
         );
         Self { mesh, material }
     }
+    pub fn update_size(&mut self, size: Vec2) {
+        self.mesh.update(
+            vec![
+                Vertex {
+                    position: [0., 0., 0.],
+                    tex_coords: [0., 0.],
+                },
+                Vertex {
+                    position: [0., size.y, 0.],
+                    tex_coords: [0., 1.],
+                },
+                Vertex {
+                    position: [size.x, 0., 0.],
+                    tex_coords: [1., 0.],
+                },
+                Vertex {
+                    position: [size.x, size.y, 0.],
+                    tex_coords: [1., 1.],
+                },
+            ],
+            vec![0, 3, 1, 0, 2, 3],
+        );
+    }
+    pub fn update_transform(&mut self, transform: Transform) {
+        let uniform = SpriteUniform {
+            view_proj: transform.get_matrix().to_cols_array_2d(),
+        };
+        self.material
+            .update_uniform(0, bytemuck::bytes_of(&uniform).to_vec());
+    }
 }
 
 #[derive(Clone)]
@@ -117,6 +162,7 @@ impl SpriteLayout {
                     fragment_entry_point: String::from("fs_main"),
                     bind_group_layouts: vec![camera.layout()],
                     buffers: vec![Vertex::desc()],
+                    frag_blend: Some(BlendState::ALPHA_BLENDING),
                     ..Default::default()
                 });
                 material_layout.register_texture_at(1, 2, ShaderStages::FRAGMENT);

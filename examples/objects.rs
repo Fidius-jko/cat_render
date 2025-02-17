@@ -8,14 +8,12 @@ use cat_render::{
     utils::{fs::Filesystem, input::Input, render::sprite::Sprite},
 };
 use winit::keyboard::KeyCode;
-
 fn main() {
     let _ = App::run();
 }
 
 pub struct App {
     sprite: Sprite,
-    sprite2: Sprite,
     camera: Camera2D,
     input: Input,
 }
@@ -36,8 +34,12 @@ impl CatApp for App {
             viewport_origin: Vec2::new(0.5, 0.5),
             ..Default::default()
         });
-        let texture =
-            Texture::from_bytes(&Filesystem::get().read("assets/happy-tree.png").unwrap()).unwrap();
+
+        let texture = Texture::from_bytes(
+            &Filesystem::get().read("assets/happy-tree.png").unwrap(),
+            wgpu::FilterMode::Nearest,
+        )
+        .unwrap();
         let sprite = Sprite::new(
             context,
             &mut camera,
@@ -46,28 +48,15 @@ impl CatApp for App {
             Transform {
                 rotation: Vec3::new(0., 0., 0.),
                 scale: Vec3::splat(4.),
-                translation: Vec3::new(50., 50., 0.),
+                translation: Vec3::new(0., 0., 0.),
                 ..Default::default()
             },
             texture.clone(),
         );
-        let sprite2 = Sprite::new(
-            context,
-            &mut camera,
-            50.,
-            50.,
-            Transform {
-                rotation: Vec3::new(0., 0., 0.),
-                scale: Vec3::splat(4.),
-                translation: Vec3::new(50., 50., 0.),
-                ..Default::default()
-            },
-            texture,
-        );
+
         Self {
             camera,
             sprite,
-            sprite2,
             input: Input::new(),
         }
     }
@@ -91,10 +80,12 @@ impl CatApp for App {
         if self.input.is_down_key(KeyCode::KeyS) {
             trans.y -= 1.;
         }
-        let mut transform = self.camera.get_transform();
-        const SPEED: f32 = 1.;
-        transform.translation += trans * SPEED;
-        self.camera.set_transform(transform);
+        // let mut transform = self.camera.get_transform();
+        let mut transform = self.sprite.get_transform();
+        const SPEED: f32 = 10.;
+        transform.translation -= trans * SPEED;
+        self.sprite.update_transform(transform);
+        // self.camera.set_transform(transform);
         self.input.tick();
     }
     fn window_event(&mut self, event: WindowEvent, context: &mut AppContext, _window: CatWindow) {
@@ -109,10 +100,9 @@ impl CatApp for App {
     fn render(&mut self, render: &mut cat_render::render::Renderer) {
         render.start_render_for_camera(
             &mut self.camera,
-            Some(Color::srgb_255(200., 200., 200.)),
+            Some(Color::srgb_255(100., 100., 100.)),
             |render| {
                 self.sprite.render(render);
-                self.sprite2.render(render);
             },
         );
     }

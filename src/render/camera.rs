@@ -30,6 +30,10 @@ impl Default for Camera2DOptions {
     }
 }
 
+#[derive(Clone, Copy)]
+pub enum CameraProjection {
+    P2D { near: f32, far: f32, area: Rect },
+}
 pub struct Camera2D {
     transform: Transform,
     near: f32,
@@ -43,6 +47,13 @@ pub struct Camera2D {
     window_size: UVec2,
 }
 impl Camera2D {
+    pub fn get_projection(&self) -> CameraProjection {
+        CameraProjection::P2D {
+            near: self.near + self.transform.translation.y,
+            far: self.far + self.transform.translation.y,
+            area: self.area.transformed(self.transform),
+        }
+    }
     pub fn new(opt: Camera2DOptions) -> Self {
         let uniform = CameraUniform { proj: [[0.; 4]; 4] };
         Self {
@@ -52,7 +63,14 @@ impl Camera2D {
             viewport_origin: opt.viewport_origin,
             scale: opt.scale,
             surface: opt.surface,
-            render: CameraRender::new(uniform),
+            render: CameraRender::new(
+                uniform,
+                CameraProjection::P2D {
+                    near: opt.near,
+                    far: opt.far,
+                    area: Rect::new(0., 0., 0., 0.),
+                },
+            ),
             area: Rect {
                 min: Vec2::default(),
                 max: Vec2::default(),
@@ -138,6 +156,8 @@ impl Camera2D {
 impl Camera for Camera2D {
     fn get_render(&mut self, _renderer: &mut Renderer, surface_size: (u32, u32)) -> &CameraRender {
         self.update_window_size(surface_size.0, surface_size.1);
+
+        self.render.proj = self.get_projection();
         &self.render
     }
     fn get_surface_id(&self) -> SurfaceId {
@@ -154,9 +174,10 @@ pub trait Camera {
 pub struct CameraRender {
     pub buffer: Buffer<CameraUniform>,
     pub bindgroup: BindGroup,
+    pub proj: CameraProjection,
 }
 impl CameraRender {
-    pub fn new(uniform: CameraUniform) -> Self {
+    pub fn new(uniform: CameraUniform, proj: CameraProjection) -> Self {
         let buf = Buffer::<CameraUniform>::new(
             vec![uniform],
             BufferUsages::UNIFORM | BufferUsages::COPY_DST,
@@ -178,6 +199,7 @@ impl CameraRender {
                 }],
             ),
             buffer: buf,
+            proj,
         }
     }
 }

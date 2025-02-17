@@ -21,7 +21,7 @@ pub(crate) struct StaticContext {
 impl StaticContext {
     pub fn new() -> Self {
         Self {
-            fps: 0,
+            fps: 120,
             windows: Windows::new(),
             renderer: pollster::block_on(Renderer::new()),
             // resources: Resources::new(),

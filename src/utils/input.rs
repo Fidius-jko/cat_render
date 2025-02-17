@@ -4,7 +4,6 @@ use glam::IVec2;
 use winit::{
     event::{KeyEvent, MouseButton},
     keyboard::{KeyCode, PhysicalKey},
-    window::{Window, WindowId},
 };
 
 use crate::window::WindowEvent;
@@ -89,7 +88,7 @@ impl Input {
                 }
             }
             WindowEvent::MouseInput {
-                device_id,
+                device_id: _,
                 state,
                 button,
             } => {
@@ -102,7 +101,7 @@ impl Input {
                 }
             }
             WindowEvent::CursorMoved {
-                device_id,
+                device_id: _,
                 position,
             } => {
                 self.mouse_pos = IVec2::new(position.x as i32, position.y as i32);

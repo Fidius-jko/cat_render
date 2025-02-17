@@ -1,5 +1,5 @@
 pub use bytemuck;
-use camera::{Camera, CameraRender};
+use camera::{Camera, CameraProjection, CameraRender};
 pub use wgpu;
 
 pub mod bind_group;
@@ -30,8 +30,8 @@ use std::{
 
 use bytemuck::{Pod, Zeroable};
 use wgpu::{
-    Adapter, BufferUsages, Device, DynamicOffset, IndexFormat, Instance, Queue, RenderPass,
-    RenderPipeline, Surface, SurfaceTexture, TextureFormat, TextureView,
+    Adapter, BufferUsages, Device, DynamicOffset, FilterMode, IndexFormat, Instance, Queue,
+    RenderPass, RenderPipeline, Surface, SurfaceTexture, TextureFormat, TextureView,
 };
 use winit::{
     dpi::PhysicalSize,
@@ -113,6 +113,9 @@ pub struct Render<'a> {
 }
 
 impl<'a> Render<'a> {
+    pub fn get_projection(&self) -> CameraProjection {
+        self.camera_render.as_ref().unwrap().proj.clone()
+    }
     pub fn use_camera_uniform_at(&mut self, slot: u32) {
         let bg = self.camera_render.as_ref().unwrap().bindgroup.clone();
         self.set_bind_group(slot, &bg, &[]);
@@ -213,15 +216,20 @@ impl Renderer {
         BindGroup::new(layout, res)
     }
     /// Create texture
-    pub fn create_texture_from_bytes(&mut self, bytes: &[u8]) -> Result<Texture, anyhow::Error> {
-        Texture::from_bytes(bytes)
+    pub fn create_texture_from_bytes(
+        &mut self,
+        bytes: &[u8],
+        filter: FilterMode,
+    ) -> Result<Texture, anyhow::Error> {
+        Texture::from_bytes(bytes, filter)
     }
     /// Create texture from `image` crate
     pub fn create_texture_from_image(
         &mut self,
         img: &DynamicImage,
+        filter: FilterMode,
     ) -> Result<Texture, anyhow::Error> {
-        Texture::from_image(img)
+        Texture::from_image(img, filter)
     }
 
     pub(crate) fn create_surface(&mut self, window: Arc<Window>) -> SurfaceId {

@@ -41,7 +41,10 @@ impl CatApp for App {
         });
         let texture = context
             .get_mut_renderer()
-            .create_texture_from_bytes(&Filesystem::get().read("assets/happy-tree.png").unwrap())
+            .create_texture_from_bytes(
+                &Filesystem::get().read("assets/happy-tree.png").unwrap(),
+                wgpu::FilterMode::Nearest,
+            )
             .unwrap();
 
         let mut material_layout = MaterialLayoutBuilder::new(PipelineOptions {

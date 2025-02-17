@@ -1,4 +1,6 @@
-use glam::{Mat4, Quat, Vec2, Vec3};
+use std::ops::{Add, Mul};
+
+use glam::{Mat4, Quat, Vec2, Vec3, Vec4};
 
 pub struct Color {
     pub r: f32,
@@ -92,5 +94,57 @@ impl Rect {
             min: Vec2::new(x, y),
             max: Vec2::new(x2, y2),
         }
+    }
+    pub fn is_in(&self, rect: Rect) -> bool {
+        self.min.x >= rect.min.x
+            && self.min.y >= rect.min.y
+            && self.max.x <= rect.max.x
+            && self.max.y <= rect.max.y
+    }
+    pub fn transformed(&self, transform: Transform) -> Self {
+        let matrix = transform.get_matrix();
+        let p1 = matrix.mul_vec4(Vec4::new(self.min.x, self.min.y, 0., 0.));
+        let p2 = matrix.mul_vec4(Vec4::new(self.max.x, self.min.y, 0., 0.));
+        let p3 = matrix.mul_vec4(Vec4::new(self.min.x, self.max.y, 0., 0.));
+        let p4 = matrix.mul_vec4(Vec4::new(self.max.x, self.max.y, 0., 0.));
+        let x = [p1.x, p2.x, p3.x, p4.x];
+        let y = [p1.y, p2.y, p3.y, p4.y];
+        let mut min = Vec2::splat(f32::INFINITY);
+        let mut max = Vec2::splat(-f32::INFINITY);
+        for x in x {
+            if x < min.x {
+                min.x = x;
+            }
+            if x > max.x {
+                max.x = x;
+            }
+        }
+        for y in y {
+            if y < min.y {
+                min.y = y;
+            }
+            if y > max.y {
+                max.y = y;
+            }
+        }
+        Self { min, max }
+    }
+}
+impl Mul<Vec2> for Rect {
+    type Output = Rect;
+    fn mul(self, rhs: Vec2) -> Self::Output {
+        let mut rect = self.clone();
+        rect.min *= rhs;
+        rect.max *= rhs;
+        rect
+    }
+}
+impl Add<Vec2> for Rect {
+    type Output = Rect;
+    fn add(self, rhs: Vec2) -> Self::Output {
+        let mut rect = self.clone();
+        rect.min += rhs;
+        rect.max += rhs;
+        rect
     }
 }

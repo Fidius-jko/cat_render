@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use winit::{
     application::ApplicationHandler,
     event::WindowEvent,
@@ -10,7 +8,7 @@ use winit::{
 use crate::{
     app::CatApp,
     context::{AppContext, StaticContext},
-    utils::timer::{TimeStep, Timer},
+    utils::timer::TimeStep,
     window::CatWindow,
 };
 

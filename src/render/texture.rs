@@ -3,6 +3,7 @@
 use anyhow::*;
 use glam::UVec2;
 use image::GenericImageView;
+use wgpu::FilterMode;
 
 use super::UnMutRenderer;
 
@@ -20,12 +21,12 @@ impl Texture {
         UVec2::new(size_3d.width, size_3d.height)
     }
     /// From raw bytes
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self> {
+    pub fn from_bytes(bytes: &[u8], filter: FilterMode) -> Result<Self> {
         let img = image::load_from_memory(bytes)?;
-        Self::from_image(&img)
+        Self::from_image(&img, filter)
     }
     /// From image from crate `image`
-    pub fn from_image(img: &image::DynamicImage) -> Result<Self> {
+    pub fn from_image(img: &image::DynamicImage, filter: FilterMode) -> Result<Self> {
         let rgba = img.to_rgba8();
         let dimensions = img.dimensions();
 
@@ -70,9 +71,9 @@ impl Texture {
                 address_mode_u: wgpu::AddressMode::ClampToEdge,
                 address_mode_v: wgpu::AddressMode::ClampToEdge,
                 address_mode_w: wgpu::AddressMode::ClampToEdge,
-                mag_filter: wgpu::FilterMode::Linear,
+                mag_filter: filter,
                 min_filter: wgpu::FilterMode::Nearest,
-                mipmap_filter: wgpu::FilterMode::Nearest,
+                mipmap_filter: filter,
                 ..Default::default()
             });
 

@@ -14,7 +14,7 @@ use winit::keyboard::KeyCode;
 fn main() {
     let _ = App::run();
 }
-
+pub const TICK_SECS: f32 = 1. / 60.;
 pub struct App {
     sprites: Vec<Sprite>,
     camera: Camera2D,
@@ -40,9 +40,12 @@ impl CatApp for App {
             viewport_origin: Vec2::new(0.5, 0.5),
             ..Default::default()
         });
-        let texture =
-            Texture::from_bytes(&Filesystem::get().read("assets/happy-tree.png").unwrap()).unwrap();
-        const SIZE: usize = 100;
+        let texture = Texture::from_bytes(
+            &Filesystem::get().read("assets/happy-tree.png").unwrap(),
+            wgpu::FilterMode::Nearest,
+        )
+        .unwrap();
+        const SIZE: usize = 500;
         let mut sprites = Vec::with_capacity(SIZE);
         for i in 0..SIZE {
             let sprite = Sprite::new(
@@ -68,7 +71,7 @@ impl CatApp for App {
             fps_cnt: 0,
         }
     }
-    fn update(&mut self, _context: &mut AppContext, _delta: f32) {
+    fn update(&mut self, _context: &mut AppContext, delta: f32) {
         self.fps_cnt += 1;
         if self.timer.is_ended() {
             self.timer.reset();
@@ -95,8 +98,8 @@ impl CatApp for App {
             trans.y -= 1.;
         }
         let mut transform = self.camera.get_transform();
-        const SPEED: f32 = 10.;
-        transform.translation += trans * SPEED;
+        const SPEED: f32 = 0.25;
+        transform.translation += trans * SPEED * delta;
         self.camera.set_transform(transform);
         self.input.tick();
     }
