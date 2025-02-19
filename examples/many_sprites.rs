@@ -30,6 +30,7 @@ impl CatApp for App {
         }
     }
     fn new(context: &mut AppContext) -> Self {
+        cat_render::utils::init_utils(context);
         context.set_fps(60);
         let window =
             context.create_window(WindowAttributes::default().with_title("Objects example"));
@@ -45,7 +46,7 @@ impl CatApp for App {
             wgpu::FilterMode::Nearest,
         )
         .unwrap();
-        const SIZE: usize = 500;
+        const SIZE: usize = 5000;
         let mut sprites = Vec::with_capacity(SIZE);
         for i in 0..SIZE {
             let sprite = Sprite::new(
@@ -56,7 +57,7 @@ impl CatApp for App {
                 Transform {
                     rotation: Vec3::new(0., 0., 0.),
                     scale: Vec3::splat(4.),
-                    translation: Vec3::new(50. + i as f32 * 5., 50., 0.),
+                    translation: Vec3::new(50. + i as f32 * 5., 50., -(i as f32)),
                     ..Default::default()
                 },
                 texture.clone(),
@@ -98,8 +99,8 @@ impl CatApp for App {
             trans.y -= 1.;
         }
         let mut transform = self.camera.get_transform();
-        const SPEED: f32 = 0.25;
-        transform.translation += trans * SPEED * delta;
+        const SPEED: f32 = 10.;
+        transform.translation += trans * SPEED;
         self.camera.set_transform(transform);
         self.input.tick();
     }

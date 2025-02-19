@@ -3,9 +3,12 @@
 use anyhow::*;
 use glam::UVec2;
 use image::GenericImageView;
-use wgpu::FilterMode;
+use wgpu::{AddressMode, FilterMode};
 
-use super::UnMutRenderer;
+use super::{
+    surface::{SurfaceId, Surfaces},
+    UnMutRenderer,
+};
 
 #[derive(Clone)]
 pub struct Texture {
@@ -20,13 +23,28 @@ impl Texture {
         let size_3d = self.texture.size();
         UVec2::new(size_3d.width, size_3d.height)
     }
-    /// From raw bytes
+
     pub fn from_bytes(bytes: &[u8], filter: FilterMode) -> Result<Self> {
+        Self::from_bytes_with_address_mode(bytes, filter, AddressMode::ClampToEdge)
+    }
+    /// From raw bytes
+    pub fn from_bytes_with_address_mode(
+        bytes: &[u8],
+        filter: FilterMode,
+        address: AddressMode,
+    ) -> Result<Self> {
         let img = image::load_from_memory(bytes)?;
-        Self::from_image(&img, filter)
+        Self::from_image_with_addres_mode(&img, filter, address)
+    }
+    pub fn from_image(img: &image::DynamicImage, filter: FilterMode) -> Result<Self> {
+        Self::from_image_with_addres_mode(img, filter, AddressMode::ClampToEdge)
     }
     /// From image from crate `image`
-    pub fn from_image(img: &image::DynamicImage, filter: FilterMode) -> Result<Self> {
+    pub fn from_image_with_addres_mode(
+        img: &image::DynamicImage,
+        filter: FilterMode,
+        address: AddressMode,
+    ) -> Result<Self> {
         let rgba = img.to_rgba8();
         let dimensions = img.dimensions();
 
@@ -68,9 +86,9 @@ impl Texture {
         let sampler = UnMutRenderer::get()
             .device
             .create_sampler(&wgpu::SamplerDescriptor {
-                address_mode_u: wgpu::AddressMode::ClampToEdge,
-                address_mode_v: wgpu::AddressMode::ClampToEdge,
-                address_mode_w: wgpu::AddressMode::ClampToEdge,
+                address_mode_u: address,
+                address_mode_v: address,
+                address_mode_w: address,
                 mag_filter: filter,
                 min_filter: wgpu::FilterMode::Nearest,
                 mipmap_filter: filter,
@@ -82,5 +100,49 @@ impl Texture {
             view,
             sampler,
         })
+    }
+    pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
+
+    pub fn create_depth_texture(surface: SurfaceId) -> Self {
+        let config = Surfaces::get().get_surface(surface).config.clone();
+
+        let size = wgpu::Extent3d {
+            width: config.width.max(1),
+            height: config.height.max(1),
+            depth_or_array_layers: 1,
+        };
+        let desc = wgpu::TextureDescriptor {
+            label: None,
+            size,
+            mip_level_count: 1,
+            sample_count: 1,
+            dimension: wgpu::TextureDimension::D2,
+            format: Self::DEPTH_FORMAT,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT | wgpu::TextureUsages::TEXTURE_BINDING,
+            view_formats: &[],
+        };
+        let texture = UnMutRenderer::get().device.create_texture(&desc);
+
+        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let sampler = UnMutRenderer::get()
+            .device
+            .create_sampler(&wgpu::SamplerDescriptor {
+                address_mode_u: wgpu::AddressMode::ClampToEdge,
+                address_mode_v: wgpu::AddressMode::ClampToEdge,
+                address_mode_w: wgpu::AddressMode::ClampToEdge,
+                mag_filter: wgpu::FilterMode::Linear,
+                min_filter: wgpu::FilterMode::Linear,
+                mipmap_filter: wgpu::FilterMode::Nearest,
+                compare: Some(wgpu::CompareFunction::LessEqual),
+                lod_min_clamp: 0.0,
+                lod_max_clamp: 100.0,
+                ..Default::default()
+            });
+
+        Self {
+            texture,
+            view,
+            sampler,
+        }
     }
 }

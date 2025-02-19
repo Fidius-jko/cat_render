@@ -95,11 +95,9 @@ impl Rect {
             max: Vec2::new(x2, y2),
         }
     }
-    pub fn is_in(&self, rect: Rect) -> bool {
-        self.min.x >= rect.min.x
-            && self.min.y >= rect.min.y
-            && self.max.x <= rect.max.x
-            && self.max.y <= rect.max.y
+    pub fn is_inserction(&self, rect: Rect) -> bool {
+        (self.max.x >= rect.min.x && self.min.x <= rect.max.x)
+            && (self.max.y >= rect.min.y && self.min.y <= rect.max.y)
     }
     pub fn transformed(&self, transform: Transform) -> Self {
         let matrix = transform.get_matrix();
@@ -107,11 +105,13 @@ impl Rect {
         let p2 = matrix.mul_vec4(Vec4::new(self.max.x, self.min.y, 0., 0.));
         let p3 = matrix.mul_vec4(Vec4::new(self.min.x, self.max.y, 0., 0.));
         let p4 = matrix.mul_vec4(Vec4::new(self.max.x, self.max.y, 0., 0.));
+
         let x = [p1.x, p2.x, p3.x, p4.x];
         let y = [p1.y, p2.y, p3.y, p4.y];
         let mut min = Vec2::splat(f32::INFINITY);
         let mut max = Vec2::splat(-f32::INFINITY);
         for x in x {
+            let x = x + transform.translation.x;
             if x < min.x {
                 min.x = x;
             }
@@ -120,6 +120,7 @@ impl Rect {
             }
         }
         for y in y {
+            let y = y + transform.translation.y;
             if y < min.y {
                 min.y = y;
             }

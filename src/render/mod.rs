@@ -283,10 +283,15 @@ impl Renderer {
         let size = Surfaces::get().get_surface(camera.get_surface_id()).size;
 
         let cam_render = camera.get_render(self, (size.width, size.height)).clone();
-        self.start_render_for_surface(camera.get_surface_id(), clear_color, |render| {
-            render.camera_render = Some(cam_render.clone());
-            (commands_sender)(render)
-        });
+        self.start_render_for_surface(
+            camera.get_surface_id(),
+            clear_color,
+            Some(&cam_render.depth_texture),
+            |render| {
+                render.camera_render = Some(cam_render.clone());
+                (commands_sender)(render)
+            },
+        );
     }
     /// Renderings starts here!
     #[allow(unused_assignments)]
@@ -294,6 +299,7 @@ impl Renderer {
         &mut self,
         surface_id: SurfaceId,
         clear_color: Option<Color>,
+        depth_texture: Option<&Texture>,
         mut commands_sender: impl FnMut(&mut Render),
     ) {
         let renderer = UnMutRenderer::get();
@@ -349,6 +355,17 @@ impl Renderer {
                 }
                 None => load = wgpu::LoadOp::Load,
             }
+            let mut depth_stencil = None;
+            if let Some(t) = depth_texture {
+                depth_stencil = Some(wgpu::RenderPassDepthStencilAttachment {
+                    view: &t.view,
+                    depth_ops: Some(wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(1.0),
+                        store: wgpu::StoreOp::Store,
+                    }),
+                    stencil_ops: None,
+                });
+            }
             let render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Render Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -359,7 +376,7 @@ impl Renderer {
                         store: wgpu::StoreOp::Store,
                     },
                 })],
-                depth_stencil_attachment: None,
+                depth_stencil_attachment: depth_stencil,
                 occlusion_query_set: None,
                 timestamp_writes: None,
             });

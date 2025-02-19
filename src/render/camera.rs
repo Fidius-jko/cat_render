@@ -6,6 +6,7 @@ use super::{
     buffer::Buffer,
     small::{Rect, Transform},
     surface::SurfaceId,
+    texture::Texture,
     Renderer,
 };
 
@@ -49,8 +50,8 @@ pub struct Camera2D {
 impl Camera2D {
     pub fn get_projection(&self) -> CameraProjection {
         CameraProjection::P2D {
-            near: self.near + self.transform.translation.y,
-            far: self.far + self.transform.translation.y,
+            near: self.near + self.transform.translation.z,
+            far: self.far + self.transform.translation.z,
             area: self.area.transformed(self.transform),
         }
     }
@@ -62,7 +63,7 @@ impl Camera2D {
             far: opt.far,
             viewport_origin: opt.viewport_origin,
             scale: opt.scale,
-            surface: opt.surface,
+            surface: opt.surface.clone(),
             render: CameraRender::new(
                 uniform,
                 CameraProjection::P2D {
@@ -70,6 +71,7 @@ impl Camera2D {
                     far: opt.far,
                     area: Rect::new(0., 0., 0., 0.),
                 },
+                opt.surface,
             ),
             area: Rect {
                 min: Vec2::default(),
@@ -175,9 +177,10 @@ pub struct CameraRender {
     pub buffer: Buffer<CameraUniform>,
     pub bindgroup: BindGroup,
     pub proj: CameraProjection,
+    pub depth_texture: Texture,
 }
 impl CameraRender {
-    pub fn new(uniform: CameraUniform, proj: CameraProjection) -> Self {
+    pub fn new(uniform: CameraUniform, proj: CameraProjection, surface: SurfaceId) -> Self {
         let buf = Buffer::<CameraUniform>::new(
             vec![uniform],
             BufferUsages::UNIFORM | BufferUsages::COPY_DST,
@@ -200,6 +203,7 @@ impl CameraRender {
             ),
             buffer: buf,
             proj,
+            depth_texture: Texture::create_depth_texture(surface),
         }
     }
 }

@@ -2,7 +2,7 @@
 use std::{
     any::{Any, TypeId},
     collections::HashMap,
-    sync::{Arc, LazyLock, Mutex, MutexGuard},
+    sync::{Arc, LazyLock, Mutex, MutexGuard, RwLock, RwLockReadGuard, RwLockWriteGuard},
 };
 
 use crate::{
@@ -58,13 +58,16 @@ impl Resources {
             None => None,
         }
     }
-    pub fn get_me() -> MutexGuard<'static, Self> {
-        RESOURCES.lock().unwrap()
+    pub fn get_me() -> RwLockReadGuard<'static, Self> {
+        RESOURCES.read().unwrap()
+    }
+    pub fn get_me_mut() -> RwLockWriteGuard<'static, Self> {
+        RESOURCES.write().unwrap()
     }
 }
 
-static RESOURCES: LazyLock<Arc<Mutex<Resources>>> =
-    std::sync::LazyLock::new(|| Arc::new(Mutex::new(Resources::new())));
+static RESOURCES: LazyLock<Arc<RwLock<Resources>>> =
+    std::sync::LazyLock::new(|| Arc::new(RwLock::new(Resources::new())));
 pub struct AppContext<'a> {
     pub(crate) base: &'a mut StaticContext,
     pub(crate) winit_context: WinitContext<'a>,

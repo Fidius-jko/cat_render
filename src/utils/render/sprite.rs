@@ -6,15 +6,15 @@ use crate::{
     context::{AppContext, Resources},
     render::{
         bind_group::BindGroup,
-        camera::Camera2D,
+        camera::{Camera2D, CameraProjection},
         mesh::{Material, MaterialLayout, MaterialLayoutBuilder, Mesh},
         render_pipeline::PipelineOptions,
-        small::Transform,
+        small::{Rect, Transform},
         texture::Texture,
         Render, Renderer,
     },
 };
-
+pub fn init_sprites(context: &mut AppContext) {}
 pub struct Sprite {
     size: Vec2,
     transform: Transform,
@@ -56,8 +56,15 @@ impl Sprite {
         self.render.update_transform(transform);
     }
     pub fn render(&mut self, render: &mut Render) {
-        // let proj = render.get_projection();
-        let need_render = true;
+        let proj = render.get_projection();
+        let rect = Rect::new(0., 0., self.size.x, self.size.y).transformed(self.transform);
+        let need_render = match proj {
+            CameraProjection::P2D { near, far, area } => {
+                area.is_inserction(rect)
+                    && self.transform.translation.z >= near
+                    && self.transform.translation.z <= far
+            }
+        };
         if need_render {
             render.use_camera_uniform_at(1);
             self.render
@@ -72,7 +79,6 @@ pub struct SpriteRender {
     mesh: Mesh<Vertex>,
 }
 impl SpriteRender {
-    /// Rect min is start point and rect max is width and height
     pub fn new(
         renderer: &mut Renderer,
         size: Vec2,
@@ -152,8 +158,7 @@ pub struct SpriteLayout {
 
 impl SpriteLayout {
     pub fn get_or_init(renderer: &mut Renderer, camera: BindGroup) -> Self {
-        let mut res = Resources::get_me();
-        match res.get::<Self>() {
+        let me = match Resources::get_me().get::<Self>() {
             Some(r) => return r.clone(),
             None => {
                 let mut material_layout = MaterialLayoutBuilder::new(PipelineOptions {
@@ -163,16 +168,24 @@ impl SpriteLayout {
                     bind_group_layouts: vec![camera.layout()],
                     buffers: vec![Vertex::desc()],
                     frag_blend: Some(BlendState::ALPHA_BLENDING),
+                    depth_stencil: Some(wgpu::DepthStencilState {
+                        format: Texture::DEPTH_FORMAT,
+                        depth_write_enabled: true,
+                        depth_compare: wgpu::CompareFunction::Less,
+                        stencil: wgpu::StencilState::default(),
+                        bias: wgpu::DepthBiasState::default(),
+                    }),
                     ..Default::default()
                 });
                 material_layout.register_texture_at(1, 2, ShaderStages::FRAGMENT);
                 material_layout.register_uniform_at(0, ShaderStages::VERTEX);
                 let material_layout = material_layout.build(renderer);
                 let me = Self { material_layout };
-                res.insert(me.clone());
                 me
             }
-        }
+        };
+        Resources::get_me_mut().insert(me.clone());
+        me
     }
 }
 

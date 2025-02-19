@@ -30,6 +30,7 @@ impl CatApp for App {
         }
     }
     fn new(context: &mut AppContext) -> Self {
+        cat_render::utils::init_utils(context);
         let window =
             context.create_window(WindowAttributes::default().with_title("Objects example"));
         let surface = context.create_surface_for_window(&window).unwrap();
