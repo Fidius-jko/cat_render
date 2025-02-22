@@ -32,7 +32,7 @@ impl<V: Pod + Zeroable> Buffer<V> {
         Self {
             wgpu_buffer: buffer,
             vertices_number: Arc::new(Mutex::new(vertices.len() as u32)),
-            mark: PhantomData::default(),
+            mark: PhantomData,
         }
     }
     /// Update buffer
@@ -47,7 +47,7 @@ impl<V: Pod + Zeroable> Buffer<V> {
     }
     /// Number of vertices
     pub fn get_vertices_number(&self) -> u32 {
-        self.vertices_number.lock().unwrap().clone()
+        *self.vertices_number.lock().unwrap()
     }
     /// Need if using it as uniform
     pub fn as_entire_binding(&self) -> BindingResource {
@@ -77,8 +77,8 @@ impl UnTypedBuffer {
                     label: Some("Buffer"),
                     contents: &vertices_bytes
                         .iter()
-                        .cloned()
                         .flatten()
+                        .cloned()
                         .collect::<Vec<u8>>(),
                     usage,
                 });
@@ -95,14 +95,14 @@ impl UnTypedBuffer {
             0,
             &vertices_bytes
                 .iter()
-                .cloned()
                 .flatten()
+                .cloned()
                 .collect::<Vec<u8>>(),
         );
     }
     /// See Buffer
     pub fn get_vertices_number(&self) -> u32 {
-        self.vertices_number.lock().unwrap().clone()
+        *self.vertices_number.lock().unwrap()
     }
     /// See Buffer
     pub fn as_entire_binding(&self) -> BindingResource {

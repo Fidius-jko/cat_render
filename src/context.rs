@@ -33,6 +33,12 @@ pub struct Resources {
     resources: HashMap<TypeId, Box<dyn Any + Send + Sync>>,
 }
 
+impl Default for Resources {
+    fn default() -> Self {
+        Resources::new()
+    }
+}
+
 impl Resources {
     pub fn new() -> Self {
         Self {

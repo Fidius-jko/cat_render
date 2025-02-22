@@ -42,15 +42,12 @@ impl<'a> Surfaces<'a> {
         let mut k = None;
         for (k2, v) in self.window_surfaces.iter() {
             if surface == v.clone() {
-                k = Some(k2.clone());
+                k = Some(*k2);
                 break;
             }
         }
-        match k {
-            Some(id) => {
-                self.window_surfaces.remove(&id);
-            }
-            _ => {}
+        if let Some(id) = k {
+            self.window_surfaces.remove(&id);
         }
     }
 
@@ -100,25 +97,22 @@ impl<'a> Surfaces<'a> {
             },
         );
         self.last_id += 1;
-        return SurfaceId(self.last_id - 1);
+        SurfaceId(self.last_id - 1)
     }
     pub(crate) fn get() -> MutexGuard<'a, Surfaces<'static>> {
         SURFACES.lock().unwrap()
     }
     pub(crate) fn resize_window_surface(&mut self, window: &WindowId, new_size: PhysicalSize<u32>) {
-        match self.window_surfaces.get(window) {
-            Some(surface) => {
-                if new_size.width != 0 && new_size.height != 0 {
-                    let surface = self.get_mut_surface(surface.clone());
-                    surface.size = new_size;
-                    surface.config.width = new_size.width;
-                    surface.config.height = new_size.height;
-                    surface
-                        .wgpu_surface
-                        .configure(&UnMutRenderer::get().device, &surface.config);
-                }
+        if let Some(surface) = self.window_surfaces.get(window) {
+            if new_size.width != 0 && new_size.height != 0 {
+                let surface = self.get_mut_surface(surface.clone());
+                surface.size = new_size;
+                surface.config.width = new_size.width;
+                surface.config.height = new_size.height;
+                surface
+                    .wgpu_surface
+                    .configure(&UnMutRenderer::get().device, &surface.config);
             }
-            None => {}
         }
     }
 }

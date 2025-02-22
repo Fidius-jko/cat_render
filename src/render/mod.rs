@@ -112,9 +112,9 @@ pub struct Render<'a> {
     camera_render: Option<CameraRender>,
 }
 
-impl<'a> Render<'a> {
+impl Render<'_> {
     pub fn get_projection(&self) -> CameraProjection {
-        self.camera_render.as_ref().unwrap().proj.clone()
+        self.camera_render.as_ref().unwrap().proj
     }
     pub fn use_camera_uniform_at(&mut self, slot: u32) {
         let bg = self.camera_render.as_ref().unwrap().bindgroup.clone();
@@ -122,7 +122,7 @@ impl<'a> Render<'a> {
     }
     /// Get renderer for init something
     pub fn get_renderer(&self) -> &Renderer {
-        &self.renderer
+        self.renderer
     }
     /// Get surface size
     pub fn get_surface_size(&self) -> (u32, u32) {
@@ -273,7 +273,7 @@ impl Renderer {
     }
     pub fn get_surface_size(&self, surface: SurfaceId) -> (u32, u32) {
         let size = Surfaces::get().get_surface(surface).size;
-        (size.width, size.height).clone()
+        (size.width, size.height)
     }
 
     /// Update buffer
@@ -318,7 +318,7 @@ impl Renderer {
         self.start_render_for_surface(
             camera.get_surface_id(),
             clear_color,
-            Some(&cam_render.depth_texture),
+            cam_render.depth_texture.as_ref(),
             |render| {
                 render.camera_render = Some(cam_render.clone());
                 (commands_sender)(render)
@@ -380,13 +380,10 @@ impl Renderer {
                 label: Some("Render Encoder"),
             });
         {
-            let load;
-            match clear_color {
-                Some(c) => {
-                    load = wgpu::LoadOp::Clear(c.into());
-                }
-                None => load = wgpu::LoadOp::Load,
-            }
+            let load = match clear_color {
+                Some(c) => wgpu::LoadOp::Clear(c.into()),
+                None => wgpu::LoadOp::Load,
+            };
             let mut depth_stencil = None;
             if let Some(t) = depth_texture {
                 depth_stencil = Some(wgpu::RenderPassDepthStencilAttachment {
@@ -417,7 +414,7 @@ impl Renderer {
                 view,
                 render_pass,
                 renderer: self,
-                surface_id: surface_id,
+                surface_id,
 
                 camera_render: None,
             };

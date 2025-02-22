@@ -18,6 +18,11 @@ pub struct Input {
     mouse_released: HashSet<MouseButton>,
     mouse_pos: IVec2,
 }
+impl Default for Input {
+    fn default() -> Self {
+        Input::new()
+    }
+}
 impl Input {
     pub fn new() -> Self {
         Self {
@@ -55,7 +60,7 @@ impl Input {
         self.mouse_down.contains(&key)
     }
     pub fn mouse_pos(&self) -> IVec2 {
-        self.mouse_pos.clone()
+        self.mouse_pos
     }
 
     pub fn window_event(&mut self, event: WindowEvent) {
@@ -74,17 +79,14 @@ impl Input {
                     repeat,
                     ..
                 } = event;
-                match physical_key {
-                    PhysicalKey::Code(c) => {
-                        if state.is_pressed() && !repeat {
-                            self.keys_pressed.insert(c);
-                            self.keys_released.remove(&c);
-                        } else if !state.is_pressed() {
-                            self.keys_released.insert(c);
-                            self.keys_pressed.remove(&c);
-                        }
+                if let PhysicalKey::Code(c) = physical_key {
+                    if state.is_pressed() && !repeat {
+                        self.keys_pressed.insert(c);
+                        self.keys_released.remove(&c);
+                    } else if !state.is_pressed() {
+                        self.keys_released.insert(c);
+                        self.keys_pressed.remove(&c);
                     }
-                    _ => {}
                 }
             }
             WindowEvent::MouseInput {

@@ -1,5 +1,3 @@
-use std::time::Instant;
-
 use cat_render::{
     prelude::*,
     render::{
@@ -10,7 +8,11 @@ use cat_render::{
     utils::{
         fs::Filesystem,
         input::Input,
-        render::sprite::{Sprite, SpriteLayout},
+        render::{
+            sprite::{Sprite, SpriteLayout},
+            texture_atlas::TextureAtlas,
+        },
+        to_radians,
     },
 };
 use winit::keyboard::KeyCode;
@@ -23,6 +25,8 @@ pub struct App {
     camera: Camera2D,
     input: Input,
     tick: u32,
+    atlas: TextureAtlas,
+    last_id: u32,
 }
 
 impl CatApp for App {
@@ -44,10 +48,11 @@ impl CatApp for App {
         });
 
         let texture = Texture::from_bytes(
-            &Filesystem::get().read("assets/happy-tree2.png").unwrap(),
+            &Filesystem::get().read("assets/robot.png").unwrap(),
             wgpu::FilterMode::Nearest,
         )
         .unwrap();
+        let texture_atlas = TextureAtlas::from_gird(Vec2::splat(16.), 1, 4);
         let sprite_layout = SpriteLayout::new(context, camera.get_bind_group());
         let sprite = Sprite::new(
             &sprite_layout,
@@ -60,7 +65,7 @@ impl CatApp for App {
                 ..Default::default()
             },
             texture.clone(),
-            Some(Rect::new(100., 100., 150., 150.)),
+            Some(texture_atlas.get_texture(0).unwrap()),
         );
 
         Self {
@@ -68,22 +73,29 @@ impl CatApp for App {
             sprite,
             input: Input::new(),
             tick: 0,
+            atlas: texture_atlas,
+            last_id: 0,
         }
     }
     fn update(&mut self, _context: &mut AppContext, _delta: f32) {
         self.tick += 1;
         if self.input.is_pressed_key(KeyCode::KeyO) {
-            self.camera.set_scale(self.camera.get_scale() - 0.1);
+            self.camera.set_scale(self.camera.get_scale() * 0.9);
         }
         if self.input.is_pressed_key(KeyCode::KeyI) {
-            self.camera.set_scale(self.camera.get_scale() + 0.1);
+            self.camera.set_scale(self.camera.get_scale() * 1.1);
         }
-        if self.input.is_pressed_key(KeyCode::KeyR) {
+        if self.input.is_down_key(KeyCode::KeyR) {
             let mut transf = self.sprite.get_transform();
-            transf.rotation.z += 1. / 10.;
+            transf.rotation.z += to_radians(10.);
             self.sprite.update_transform(transf);
         }
-
+        if self.input.is_down_key(KeyCode::Space) {
+            self.last_id += 1;
+            self.last_id %= 4;
+            self.sprite
+                .set_rect(self.atlas.get_texture(self.last_id as usize).unwrap());
+        }
         let mut trans = Vec3::splat(0.);
         if self.input.is_down_key(KeyCode::KeyA) {
             trans.x -= 1.;
@@ -97,8 +109,6 @@ impl CatApp for App {
         if self.input.is_down_key(KeyCode::KeyS) {
             trans.y -= 1.;
         }
-        self.sprite
-            .set_rect(Rect::new(100. + (self.tick as f32).sin(), 100., 150., 150.));
         let mut transform = self.camera.get_transform();
         // let mut transform = self.sprite.get_transform();
         const SPEED: f32 = 10.;
@@ -119,7 +129,7 @@ impl CatApp for App {
     fn render(&mut self, render: &mut cat_render::render::Renderer) {
         render.start_render_for_camera(
             &mut self.camera,
-            Some(Color::srgb_255(100., 100., 100.)),
+            Some(Color::srgb_255(155., 155., 155.)),
             |render| {
                 self.sprite.render(render);
             },

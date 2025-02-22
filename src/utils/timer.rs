@@ -9,7 +9,7 @@ pub struct Timer {
 impl Timer {
     pub fn new(dur: Duration) -> Self {
         Self {
-            start: Instant::now().clone(),
+            start: Instant::now(),
             dur,
         }
     }
@@ -28,7 +28,11 @@ pub struct TimeStep {
     frame_count: u32,
     frame_time: f32,
 }
-
+impl Default for TimeStep {
+    fn default() -> Self {
+        TimeStep::new()
+    }
+}
 impl TimeStep {
     pub fn new() -> TimeStep {
         TimeStep {

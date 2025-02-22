@@ -30,7 +30,7 @@ impl Filesystem {
     }
     pub fn write_into_end(&self, path: &str, bytes: Vec<u8>) -> Result<(), std::io::Error> {
         let mut file = OpenOptions::new().write(true).open(path)?;
-        file.write(&bytes)?;
+        file.write_all(&bytes)?;
         Ok(())
     }
 }

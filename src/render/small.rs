@@ -32,13 +32,14 @@ impl Color {
         Self { r, g, b, a: 1.0 }
     }
 }
-impl Into<wgpu::Color> for Color {
-    fn into(self) -> wgpu::Color {
+
+impl From<Color> for wgpu::Color {
+    fn from(val: Color) -> Self {
         wgpu::Color {
-            r: self.r as f64,
-            g: self.g as f64,
-            b: self.b as f64,
-            a: self.a as f64,
+            r: val.r as f64,
+            g: val.g as f64,
+            b: val.b as f64,
+            a: val.a as f64,
         }
     }
 }
@@ -72,14 +73,13 @@ impl Transform {
         }
     }
     pub fn get_matrix(&self) -> Mat4 {
-        let mat = Mat4::from_scale_rotation_translation(
+        Mat4::from_scale_rotation_translation(
             self.scale,
             Quat::from_rotation_x(self.rotation.x)
                 * Quat::from_rotation_y(self.rotation.y)
                 * Quat::from_rotation_z(self.rotation.z),
             self.translation,
-        );
-        mat
+        )
     }
 }
 
@@ -134,7 +134,7 @@ impl Rect {
 impl Mul<Vec2> for Rect {
     type Output = Rect;
     fn mul(self, rhs: Vec2) -> Self::Output {
-        let mut rect = self.clone();
+        let mut rect = self;
         rect.min *= rhs;
         rect.max *= rhs;
         rect
@@ -143,7 +143,7 @@ impl Mul<Vec2> for Rect {
 impl Add<Vec2> for Rect {
     type Output = Rect;
     fn add(self, rhs: Vec2) -> Self::Output {
-        let mut rect = self.clone();
+        let mut rect = self;
         rect.min += rhs;
         rect.max += rhs;
         rect

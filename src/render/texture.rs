@@ -82,7 +82,9 @@ impl Texture {
             size,
         );
 
-        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let view = texture.create_view(&wgpu::TextureViewDescriptor {
+            ..Default::default()
+        });
         let sampler = UnMutRenderer::get()
             .device
             .create_sampler(&wgpu::SamplerDescriptor {

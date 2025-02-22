@@ -17,11 +17,8 @@ pub(crate) struct Windows {
 
 impl Windows {
     pub(crate) fn request_redraw(&self) {
-        match self.windows.iter().next() {
-            Some(window) => {
-                window.1.request_redraw();
-            }
-            None => {}
+        if let Some(window) = self.windows.iter().next() {
+            window.1.request_redraw();
         }
     }
     pub fn new() -> Self {
@@ -34,9 +31,8 @@ impl Windows {
         self.windows.remove(&window.id);
         let mut surfaces = Surfaces::get();
         let surface = surfaces.get_surface_id_from_window(&window.id);
-        match surface {
-            Some(s) => surfaces.delete_surface(s),
-            None => {}
+        if let Some(s) = surface {
+            surfaces.delete_surface(s);
         }
     }
     pub fn exists(&self, window: &CatWindow) -> bool {
@@ -50,7 +46,7 @@ impl Windows {
         let new = winit.event_loop.create_window(window_attributes).unwrap();
         let id = new.id();
         self.windows.insert(id, Arc::new(new));
-        return CatWindow { id };
+        CatWindow { id }
     }
     pub fn get(&self, window: &CatWindow) -> Option<Arc<Window>> {
         self.windows.get(&window.id).cloned()

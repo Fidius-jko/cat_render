@@ -73,9 +73,7 @@ impl Pipelines {
                         cache: None,
                     },
                 );
-                pipeline
-                    .builded
-                    .insert(format.clone(), Rc::new(render_pipeline));
+                pipeline.builded.insert(format, Rc::new(render_pipeline));
             }
         };
         pipeline.builded.get(&format).unwrap().clone()
@@ -130,7 +128,7 @@ impl Pipelines {
             },
         );
         self.last_id += 1;
-        return PipelineId(self.last_id - 1);
+        PipelineId(self.last_id - 1)
     }
 }
 

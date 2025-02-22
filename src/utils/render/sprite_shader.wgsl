@@ -42,9 +42,9 @@ fn vs_main(
         out.tex_coords.x = texture_opt.size_z / texture_opt.texture_size_x;
     }
     if model.tex_coords.y == 0. {
-        out.tex_coords.y = 1-texture_opt.size_y / texture_opt.texture_size_y;
+        out.tex_coords.y = texture_opt.size_y / texture_opt.texture_size_y;
     } else {
-        out.tex_coords.y = 1-texture_opt.size_w / texture_opt.texture_size_y;
+        out.tex_coords.y = texture_opt.size_w / texture_opt.texture_size_y;
     }
     out.clip_position = cam_uni.proj * (uni.view_proj * vec4<f32>(model.position , 1.0));
     return out;

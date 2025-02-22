@@ -169,14 +169,14 @@ impl Material {
                 vec![bytes.clone()],
                 BufferUsages::UNIFORM | BufferUsages::COPY_DST,
             );
-            uniform_buffers.insert(binding.clone(), buf);
+            uniform_buffers.insert(*binding, buf);
         }
 
         for (binding, _) in uniforms.iter() {
             res.push(BindGroupEntryResources {
-                binding: binding.clone(),
+                binding: *binding,
                 resource: uniform_buffers
-                    .get(&binding)
+                    .get(binding)
                     .unwrap()
                     .as_entire_binding()
                     .clone(),
@@ -188,7 +188,7 @@ impl Material {
                 resource: wgpu::BindingResource::TextureView(&texture.view),
             });
             res.push(BindGroupEntryResources {
-                binding: sample_binding.clone(),
+                binding: *sample_binding,
                 resource: wgpu::BindingResource::Sampler(&texture.sampler),
             });
         }
@@ -212,7 +212,7 @@ impl Material {
 
         for (binding, buffer) in self.uniform_buffers.iter() {
             res.push(BindGroupEntryResources {
-                binding: binding.clone(),
+                binding: *binding,
                 resource: buffer.as_entire_binding(),
             });
         }
@@ -222,7 +222,7 @@ impl Material {
                 resource: wgpu::BindingResource::TextureView(&texture.view),
             });
             res.push(BindGroupEntryResources {
-                binding: sample_binding.clone(),
+                binding: *sample_binding,
                 resource: wgpu::BindingResource::Sampler(&texture.sampler),
             });
         }

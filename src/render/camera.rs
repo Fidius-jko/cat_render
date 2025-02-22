@@ -72,6 +72,7 @@ impl Camera2D {
                     area: Rect::new(0., 0., 0., 0.),
                 },
                 opt.surface,
+                false,
             ),
             area: Rect {
                 min: Vec2::default(),
@@ -115,7 +116,7 @@ impl Camera2D {
         self.is_need_update = true;
     }
     pub fn get_transform(&self) -> Transform {
-        self.transform.clone()
+        self.transform
     }
     pub fn generate_matrix(&self) -> Mat4 {
         let mut transf = self.transform;
@@ -152,7 +153,6 @@ impl Camera2D {
                 proj: self.generate_matrix().to_cols_array_2d(),
             };
             self.render.buffer.update(vec![uniform]);
-            self.render.depth_texture = Texture::create_depth_texture(self.surface.clone());
         }
     }
 }
@@ -186,14 +186,24 @@ pub struct CameraRender {
     pub buffer: Buffer<CameraUniform>,
     pub bindgroup: BindGroup,
     pub proj: CameraProjection,
-    pub depth_texture: Texture,
+    pub depth_texture: Option<Texture>,
 }
 impl CameraRender {
-    pub fn new(uniform: CameraUniform, proj: CameraProjection, surface: SurfaceId) -> Self {
+    pub fn new(
+        uniform: CameraUniform,
+        proj: CameraProjection,
+        surface: SurfaceId,
+        depth: bool,
+    ) -> Self {
         let buf = Buffer::<CameraUniform>::new(
             vec![uniform],
             BufferUsages::UNIFORM | BufferUsages::COPY_DST,
         );
+        let depth_texture = if depth {
+            Some(Texture::create_depth_texture(surface))
+        } else {
+            None
+        };
         Self {
             bindgroup: BindGroup::new(
                 vec![BindGroupEntryLayout {
@@ -212,7 +222,7 @@ impl CameraRender {
             ),
             buffer: buf,
             proj,
-            depth_texture: Texture::create_depth_texture(surface),
+            depth_texture,
         }
     }
 }
