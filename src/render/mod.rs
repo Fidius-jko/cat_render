@@ -15,7 +15,7 @@ pub use small::Color;
 
 use bind_group::BindGroup;
 use bind_group::{BindGroupEntryLayout, BindGroupEntryResources};
-use buffer::Buffer;
+use buffer::{Buffer, UnTypedBuffer};
 use image::DynamicImage;
 use render_pipeline::{PipelineId, PipelineOptions, Pipelines};
 use surface::{SurfaceId, Surfaces};
@@ -189,6 +189,36 @@ impl<'a> Render<'a> {
             V::get_index_format(),
         );
     }
+    /// set vertex buffer
+    pub fn set_vertex_buffer_untyped(
+        &mut self,
+        buffer: &UnTypedBuffer,
+        slot: u32,
+        buffer_slice: impl RangeBounds<u64>,
+    ) {
+        if buffer.wgpu_buffer.usage() & BufferUsages::VERTEX == BufferUsages::empty() {
+            log::warn!("Buffer is not for vertex!");
+            log::warn!("Buffer is not added!");
+            return;
+        }
+        self.render_pass
+            .set_vertex_buffer(slot, buffer.wgpu_buffer.slice(buffer_slice));
+    }
+    /// set index buffer need for `draw_indexed`
+    pub fn set_index_buffer_untyped(
+        &mut self,
+        buffer: &UnTypedBuffer,
+        buffer_slice: impl RangeBounds<u64>,
+        index_format: IndexFormat,
+    ) {
+        if buffer.wgpu_buffer.usage() & BufferUsages::INDEX == BufferUsages::empty() {
+            log::warn!("Buffer is not for index!");
+            log::warn!("Buffer is not added!");
+            return;
+        }
+        self.render_pass
+            .set_index_buffer(buffer.wgpu_buffer.slice(buffer_slice), index_format);
+    }
 }
 
 pub trait GetIndexFormat {
@@ -282,7 +312,9 @@ impl Renderer {
     ) {
         let size = Surfaces::get().get_surface(camera.get_surface_id()).size;
 
-        let cam_render = camera.get_render(self, (size.width, size.height)).clone();
+        let cam_render = camera
+            .get_render_global(self, (size.width, size.height))
+            .clone();
         self.start_render_for_surface(
             camera.get_surface_id(),
             clear_color,

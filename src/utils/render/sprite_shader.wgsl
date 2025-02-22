@@ -7,8 +7,18 @@ struct VertexInput {
 struct Uniform {
     view_proj: mat4x4<f32>,
 };
+struct TextureOptions {
+    size_x: f32,
+    size_y: f32,
+    size_z: f32,
+    size_w: f32,
+    texture_size_x: f32,
+    texture_size_y: f32,
+};
 @group(0) @binding(0) 
 var<uniform> uni: Uniform;
+@group(0) @binding(3) 
+var<uniform> texture_opt: TextureOptions;
 
 struct CameraUniform {
     proj: mat4x4<f32>,
@@ -26,8 +36,16 @@ fn vs_main(
     model: VertexInput,
 ) -> VertexOutput {
     var out: VertexOutput;
-    out.tex_coords = model.tex_coords;
-    out.tex_coords.y = 1 - out.tex_coords.y;
+    if model.tex_coords.x == 0. {
+        out.tex_coords.x = texture_opt.size_x / texture_opt.texture_size_x;
+    } else {
+        out.tex_coords.x = texture_opt.size_z / texture_opt.texture_size_x;
+    }
+    if model.tex_coords.y == 0. {
+        out.tex_coords.y = 1-texture_opt.size_y / texture_opt.texture_size_y;
+    } else {
+        out.tex_coords.y = 1-texture_opt.size_w / texture_opt.texture_size_y;
+    }
     out.clip_position = cam_uni.proj * (uni.view_proj * vec4<f32>(model.position , 1.0));
     return out;
 }

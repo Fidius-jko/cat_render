@@ -1,9 +1,7 @@
-# 1. Cameras
+# 1. One big texture
 # 2. Refactor and Docs +-
-# Depth buffer
 # Wasm
 # Monitos
 # Platform spec. filesystems
 # hashbroun
 # do readme
-# input

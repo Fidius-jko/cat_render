@@ -1,20 +1,20 @@
 use bytemuck::{Pod, Zeroable};
-use glam::Vec2;
+use glam::{Mat4, Vec2, Vec3};
 use wgpu::{BlendState, ShaderStages};
 
 use crate::{
-    context::{AppContext, Resources},
+    context::AppContext,
     render::{
         bind_group::BindGroup,
-        camera::{Camera2D, CameraProjection},
-        mesh::{Material, MaterialLayout, MaterialLayoutBuilder, Mesh},
+        camera::CameraProjection,
+        mesh::{Material, MaterialLayout, MaterialLayoutBuilder, Mesh, MeshRef},
         render_pipeline::PipelineOptions,
         small::{Rect, Transform},
         texture::Texture,
-        Render, Renderer,
+        Render,
     },
 };
-pub fn init_sprites(context: &mut AppContext) {}
+pub fn init_sprites(_context: &mut AppContext) {}
 pub struct Sprite {
     size: Vec2,
     transform: Transform,
@@ -26,26 +26,30 @@ impl Sprite {
         self.transform.clone()
     }
     pub fn new(
-        context: &mut AppContext,
-        camera: &mut Camera2D,
+        layout: &SpriteLayout,
         width: f32,
         height: f32,
         transform: Transform,
         texture: Texture,
+        rect: Option<Rect>,
     ) -> Self {
+        let rect = match rect {
+            Some(r) => r,
+            None => Rect {
+                min: Vec2::splat(0.),
+                max: Vec2::new(texture.get_size().x as f32, texture.get_size().y as f32),
+            },
+        };
         let size = Vec2::new(width, height);
-        let render = SpriteRender::new(
-            context.get_mut_renderer(),
-            size,
-            camera.get_bind_group(),
-            transform,
-            texture,
-        );
+        let render = SpriteRender::new(size, transform, texture, layout, rect);
         Self {
             size,
             transform,
             render,
         }
+    }
+    pub fn set_rect(&mut self, rect: Rect) {
+        self.render.update_rect(rect);
     }
     pub fn update_size(&mut self, new_size: Vec2) {
         self.size = new_size;
@@ -66,126 +70,161 @@ impl Sprite {
             }
         };
         if need_render {
-            render.use_camera_uniform_at(1);
-            self.render
-                .mesh
-                .draw_with_material(render, &self.render.material);
+            self.render.render(render);
         }
     }
 }
 
 pub struct SpriteRender {
     material: Material,
-    mesh: Mesh<Vertex>,
+    mesh: MeshRef,
+    size: Vec2,
+    transform: Transform,
+    texture: Texture,
+    updated_uniform: bool,
+    updated_rect: bool,
+    rect: Rect,
 }
 impl SpriteRender {
+    pub fn render(&mut self, render: &mut Render) {
+        if self.updated_uniform {
+            self.updated_uniform = false;
+            self.update_uniform();
+        }
+        if self.updated_rect {
+            self.updated_rect = false;
+            self.update_rect_inner();
+        }
+        render.use_camera_uniform_at(1);
+        self.mesh.draw_with_material(render, &self.material);
+    }
     pub fn new(
-        renderer: &mut Renderer,
         size: Vec2,
-        camera: BindGroup,
         transform: Transform,
         texture: Texture,
+        layout: &SpriteLayout,
+        rect: Rect,
     ) -> Self {
-        let layout = SpriteLayout::get_or_init(renderer, camera);
-
         let uniform = SpriteUniform {
-            view_proj: transform.get_matrix().to_cols_array_2d(),
+            view_proj: (transform.get_matrix() * Mat4::from_scale(Vec3::new(size.x, size.y, 1.)))
+                .to_cols_array_2d(),
+        };
+        let rect2 = TextureRectUniform {
+            size: [rect.min.x, rect.min.y, rect.max.x, rect.max.y],
+            texture_size: [texture.get_size().x as f32, texture.get_size().y as f32],
         };
         let material = Material::from_layout(
             &layout.material_layout,
-            vec![(0, bytemuck::bytes_of(&uniform).to_vec())],
-            vec![(1, 2, texture)],
-        );
-        let mesh = Mesh::new(
             vec![
-                Vertex {
-                    position: [0., 0., 0.],
-                    tex_coords: [0., 0.],
-                },
-                Vertex {
-                    position: [0., size.y, 0.],
-                    tex_coords: [0., 1.],
-                },
-                Vertex {
-                    position: [size.x, 0., 0.],
-                    tex_coords: [1., 0.],
-                },
-                Vertex {
-                    position: [size.x, size.y, 0.],
-                    tex_coords: [1., 1.],
-                },
+                (0, bytemuck::bytes_of(&uniform).to_vec()),
+                (3, bytemuck::bytes_of(&rect2).to_vec()),
             ],
-            vec![0, 3, 1, 0, 2, 3],
+            vec![(1, 2, texture.clone())],
         );
-        Self { mesh, material }
+
+        Self {
+            material,
+            size,
+            transform,
+            mesh: layout.mesh.clone(),
+            texture,
+            updated_uniform: false,
+            rect,
+            updated_rect: false,
+        }
+    }
+    pub fn update_rect(&mut self, rect: Rect) {
+        self.rect = rect;
+        self.updated_rect = true;
+    }
+    fn update_rect_inner(&mut self) {
+        let rect = TextureRectUniform {
+            size: [
+                self.rect.min.x,
+                self.rect.min.y,
+                self.rect.max.x,
+                self.rect.max.y,
+            ],
+            texture_size: [
+                self.texture.get_size().x as f32,
+                self.texture.get_size().y as f32,
+            ],
+        };
+        self.material
+            .update_uniform(3, bytemuck::bytes_of(&rect).to_vec());
     }
     pub fn update_size(&mut self, size: Vec2) {
-        self.mesh.update(
-            vec![
-                Vertex {
-                    position: [0., 0., 0.],
-                    tex_coords: [0., 0.],
-                },
-                Vertex {
-                    position: [0., size.y, 0.],
-                    tex_coords: [0., 1.],
-                },
-                Vertex {
-                    position: [size.x, 0., 0.],
-                    tex_coords: [1., 0.],
-                },
-                Vertex {
-                    position: [size.x, size.y, 0.],
-                    tex_coords: [1., 1.],
-                },
-            ],
-            vec![0, 3, 1, 0, 2, 3],
-        );
+        self.size = size;
+        self.updated_uniform = true;
     }
-    pub fn update_transform(&mut self, transform: Transform) {
+    fn update_uniform(&mut self) {
         let uniform = SpriteUniform {
-            view_proj: transform.get_matrix().to_cols_array_2d(),
+            view_proj: (self.transform.get_matrix()
+                * Mat4::from_scale(Vec3::new(self.size.x, self.size.y, 1.)))
+            .to_cols_array_2d(),
         };
         self.material
             .update_uniform(0, bytemuck::bytes_of(&uniform).to_vec());
+    }
+    pub fn update_transform(&mut self, transform: Transform) {
+        self.transform = transform;
+        self.updated_uniform = true;
     }
 }
 
 #[derive(Clone)]
 pub struct SpriteLayout {
     material_layout: MaterialLayout,
+    mesh: MeshRef,
 }
 
 impl SpriteLayout {
-    pub fn get_or_init(renderer: &mut Renderer, camera: BindGroup) -> Self {
-        let me = match Resources::get_me().get::<Self>() {
-            Some(r) => return r.clone(),
-            None => {
-                let mut material_layout = MaterialLayoutBuilder::new(PipelineOptions {
-                    vertex_shader: include_str!("sprite_shader.wgsl").to_string(),
-                    vertex_entry_point: String::from("vs_main"),
-                    fragment_entry_point: String::from("fs_main"),
-                    bind_group_layouts: vec![camera.layout()],
-                    buffers: vec![Vertex::desc()],
-                    frag_blend: Some(BlendState::ALPHA_BLENDING),
-                    depth_stencil: Some(wgpu::DepthStencilState {
-                        format: Texture::DEPTH_FORMAT,
-                        depth_write_enabled: true,
-                        depth_compare: wgpu::CompareFunction::Less,
-                        stencil: wgpu::StencilState::default(),
-                        bias: wgpu::DepthBiasState::default(),
-                    }),
-                    ..Default::default()
-                });
-                material_layout.register_texture_at(1, 2, ShaderStages::FRAGMENT);
-                material_layout.register_uniform_at(0, ShaderStages::VERTEX);
-                let material_layout = material_layout.build(renderer);
-                let me = Self { material_layout };
-                me
-            }
-        };
-        Resources::get_me_mut().insert(me.clone());
-        me
+    pub fn new(context: &mut AppContext, camera: BindGroup) -> Self {
+        let mut material_layout = MaterialLayoutBuilder::new(PipelineOptions {
+            vertex_shader: include_str!("sprite_shader.wgsl").to_string(),
+            vertex_entry_point: String::from("vs_main"),
+            fragment_entry_point: String::from("fs_main"),
+            bind_group_layouts: vec![camera.layout()],
+            buffers: vec![Vertex::desc()],
+            frag_blend: Some(BlendState::ALPHA_BLENDING),
+            depth_stencil: Some(wgpu::DepthStencilState {
+                format: Texture::DEPTH_FORMAT,
+                depth_write_enabled: true,
+                depth_compare: wgpu::CompareFunction::Less,
+                stencil: wgpu::StencilState::default(),
+                bias: wgpu::DepthBiasState::default(),
+            }),
+            ..Default::default()
+        });
+        material_layout.register_texture_at(1, 2, ShaderStages::FRAGMENT);
+        material_layout.register_uniform_at(0, ShaderStages::VERTEX);
+        material_layout.register_uniform_at(3, ShaderStages::VERTEX);
+        let material_layout = material_layout.build(context.get_mut_renderer());
+        Self {
+            material_layout,
+            mesh: Mesh::new(
+                vec![
+                    Vertex {
+                        position: [0., 0., 0.],
+                        tex_coords: [0., 0.],
+                    },
+                    Vertex {
+                        position: [0., 1., 0.],
+                        tex_coords: [0., 1.],
+                    },
+                    Vertex {
+                        position: [1., 0., 0.],
+                        tex_coords: [1., 0.],
+                    },
+                    Vertex {
+                        position: [1., 1., 0.],
+                        tex_coords: [1., 1.],
+                    },
+                ],
+                vec![0, 3, 1, 0, 2, 3],
+            )
+            .ref_me(),
+        }
     }
 }
 
@@ -214,4 +253,12 @@ impl Vertex {
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 struct SpriteUniform {
     view_proj: [[f32; 4]; 4],
+}
+
+#[repr(C)]
+// This is so we can store this in a buffer
+#[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+struct TextureRectUniform {
+    size: [f32; 4],
+    texture_size: [f32; 2],
 }

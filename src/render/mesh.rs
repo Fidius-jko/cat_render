@@ -20,6 +20,20 @@ pub struct Mesh<V: Pod + Zeroable + Clone> {
     indicies: Vec<u16>,
     index_buffer: Buffer<u16>,
 }
+#[derive(Clone)]
+pub struct MeshRef {
+    buffer: UnTypedBuffer,
+    index_buffer: UnTypedBuffer,
+}
+impl MeshRef {
+    pub fn draw_with_material(&mut self, render: &mut Render, material: &Material) {
+        material.use_me(render, 0);
+
+        render.set_vertex_buffer_untyped(&self.buffer, 0, ..);
+        render.set_index_buffer_untyped(&self.index_buffer, .., wgpu::IndexFormat::Uint16);
+        render.draw_indexed(0..self.index_buffer.get_vertices_number(), 0, 0..1);
+    }
+}
 
 impl<V: Pod + Zeroable> Mesh<V> {
     /// New buffer
@@ -49,6 +63,12 @@ impl<V: Pod + Zeroable> Mesh<V> {
         render.set_vertex_buffer(&self.buffer, 0, ..);
         render.set_index_buffer(&self.index_buffer, ..);
         render.draw_indexed(0..self.index_buffer.get_vertices_number(), 0, 0..1);
+    }
+    pub fn ref_me(&self) -> MeshRef {
+        MeshRef {
+            buffer: self.buffer.into_untyped(),
+            index_buffer: self.index_buffer.into_untyped(),
+        }
     }
 }
 

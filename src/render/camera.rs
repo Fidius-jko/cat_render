@@ -152,11 +152,16 @@ impl Camera2D {
                 proj: self.generate_matrix().to_cols_array_2d(),
             };
             self.render.buffer.update(vec![uniform]);
+            self.render.depth_texture = Texture::create_depth_texture(self.surface.clone());
         }
     }
 }
 impl Camera for Camera2D {
-    fn get_render(&mut self, _renderer: &mut Renderer, surface_size: (u32, u32)) -> &CameraRender {
+    fn get_render_global(
+        &mut self,
+        _renderer: &mut Renderer,
+        surface_size: (u32, u32),
+    ) -> &CameraRender {
         self.update_window_size(surface_size.0, surface_size.1);
 
         self.render.proj = self.get_projection();
@@ -169,7 +174,11 @@ impl Camera for Camera2D {
 
 pub trait Camera {
     fn get_surface_id(&self) -> SurfaceId;
-    fn get_render(&mut self, renderer: &mut Renderer, surface_size: (u32, u32)) -> &CameraRender;
+    fn get_render_global(
+        &mut self,
+        renderer: &mut Renderer,
+        surface_size: (u32, u32),
+    ) -> &CameraRender;
 }
 
 #[derive(Clone)]

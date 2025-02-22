@@ -1,11 +1,17 @@
+use std::time::Instant;
+
 use cat_render::{
     prelude::*,
     render::{
         camera::{Camera2D, Camera2DOptions},
-        small::Transform,
+        small::{Rect, Transform},
         texture::Texture,
     },
-    utils::{fs::Filesystem, input::Input, render::sprite::Sprite},
+    utils::{
+        fs::Filesystem,
+        input::Input,
+        render::sprite::{Sprite, SpriteLayout},
+    },
 };
 use winit::keyboard::KeyCode;
 fn main() {
@@ -16,6 +22,7 @@ pub struct App {
     sprite: Sprite,
     camera: Camera2D,
     input: Input,
+    tick: u32,
 }
 
 impl CatApp for App {
@@ -29,7 +36,7 @@ impl CatApp for App {
         let window =
             context.create_window(WindowAttributes::default().with_title("Objects example"));
         let surface = context.create_surface_for_window(&window).unwrap();
-        let mut camera = Camera2D::new(Camera2DOptions {
+        let camera = Camera2D::new(Camera2DOptions {
             transform: Transform::from_translation(Vec3::new(0., 0., 0.)),
             surface: surface.clone(),
             viewport_origin: Vec2::new(0.5, 0.5),
@@ -37,14 +44,13 @@ impl CatApp for App {
         });
 
         let texture = Texture::from_bytes(
-            &Filesystem::get().read("assets/happy-tree.png").unwrap(),
+            &Filesystem::get().read("assets/happy-tree2.png").unwrap(),
             wgpu::FilterMode::Nearest,
         )
         .unwrap();
-
+        let sprite_layout = SpriteLayout::new(context, camera.get_bind_group());
         let sprite = Sprite::new(
-            context,
-            &mut camera,
+            &sprite_layout,
             100.,
             100.,
             Transform {
@@ -54,16 +60,18 @@ impl CatApp for App {
                 ..Default::default()
             },
             texture.clone(),
+            Some(Rect::new(100., 100., 150., 150.)),
         );
-        println!("A");
 
         Self {
             camera,
             sprite,
             input: Input::new(),
+            tick: 0,
         }
     }
     fn update(&mut self, _context: &mut AppContext, _delta: f32) {
+        self.tick += 1;
         if self.input.is_pressed_key(KeyCode::KeyO) {
             self.camera.set_scale(self.camera.get_scale() - 0.1);
         }
@@ -89,10 +97,12 @@ impl CatApp for App {
         if self.input.is_down_key(KeyCode::KeyS) {
             trans.y -= 1.;
         }
+        self.sprite
+            .set_rect(Rect::new(100. + (self.tick as f32).sin(), 100., 150., 150.));
         let mut transform = self.camera.get_transform();
         // let mut transform = self.sprite.get_transform();
         const SPEED: f32 = 10.;
-        transform.translation -= trans * SPEED;
+        transform.translation += trans * SPEED;
         // self.sprite.update_transform(transform);
         self.camera.set_transform(transform);
         self.input.tick();

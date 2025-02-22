@@ -53,8 +53,15 @@ impl<V: Pod + Zeroable> Buffer<V> {
     pub fn as_entire_binding(&self) -> BindingResource {
         self.wgpu_buffer.as_entire_binding()
     }
+    pub fn into_untyped(&self) -> UnTypedBuffer {
+        UnTypedBuffer {
+            wgpu_buffer: self.wgpu_buffer.clone(),
+            vertices_number: self.vertices_number.clone(),
+        }
+    }
 }
 /// Buffer with only bytes
+#[derive(Clone)]
 pub struct UnTypedBuffer {
     pub(crate) wgpu_buffer: wgpu::Buffer,
     pub(crate) vertices_number: Arc<Mutex<u32>>,
