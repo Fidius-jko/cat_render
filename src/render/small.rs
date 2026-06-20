@@ -44,11 +44,20 @@ impl From<Color> for wgpu::Color {
     }
 }
 
-#[derive(Default, Clone, Copy)]
+#[derive(Clone, Copy)]
 pub struct Transform {
     pub translation: Vec3,
     pub scale: Vec3,
     pub rotation: Vec3,
+}
+impl Default for Transform {
+    fn default() -> Self {
+        Self {
+            translation: Vec3::splat(0.),
+            scale: Vec3::splat(1.),
+            rotation: Vec3::splat(0.),
+        }
+    }
 }
 
 impl Transform {

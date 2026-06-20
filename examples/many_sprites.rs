@@ -3,7 +3,7 @@ use std::time::Duration;
 use cat_render::{
     prelude::*,
     render::{
-        camera::{Camera2D, Camera2DOptions},
+        camera::{Camera, Camera2D, Camera2DOptions},
         small::Transform,
         texture::Texture,
     },
@@ -55,7 +55,7 @@ impl CatApp for App {
         .unwrap();
         const SIZE: usize = 500000;
         let mut sprites = Vec::with_capacity(SIZE);
-        let sprite_layout = SpriteLayout::new(context, camera.get_bind_group());
+        let sprite_layout = SpriteLayout::new(context, camera.get_bind_group(), None);
         for i in 0..SIZE {
             let sprite = Sprite::new(
                 &sprite_layout,
@@ -116,6 +116,7 @@ impl CatApp for App {
         let mut transform = self.camera.get_transform();
         const SPEED: f32 = 10.;
         transform.translation += trans * SPEED;
+
         self.camera.set_transform(transform);
         self.input.tick();
     }
@@ -129,10 +130,12 @@ impl CatApp for App {
         }
     }
     fn render(&mut self, render: &mut cat_render::render::Renderer) {
-        render.start_render_for_camera(
-            &mut self.camera,
+        render.start_render_for_surface(
+            self.camera.get_surface_id(),
             Some(Color::srgb_255(200., 200., 200.)),
+            None,
             |render| {
+                render.set_camera(&mut self.camera);
                 for sprite in self.sprites.iter_mut() {
                     sprite.render(render);
                 }

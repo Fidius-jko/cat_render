@@ -2,7 +2,7 @@
 
 use anyhow::*;
 use glam::UVec2;
-use image::GenericImageView;
+use image::{DynamicImage, GenericImageView};
 use wgpu::{AddressMode, FilterMode};
 
 use super::{

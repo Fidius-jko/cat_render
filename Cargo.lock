@@ -299,6 +299,7 @@ dependencies = [
  "image",
  "log",
  "pollster",
+ "ttf-parser 0.25.1",
  "wgpu",
  "winit",
 ]

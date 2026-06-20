@@ -55,8 +55,7 @@ impl<App: CatApp> ApplicationHandler for WinitApp<App> {
         match event {
             WindowEvent::RedrawRequested => {
                 app_context.base.windows.request_redraw();
-                // if !self.fps_timer.as_ref().unwrap().is_ended() {
-                // } else {
+
                 let dl = self.step.delta();
                 self.lag += dl;
                 let fps = app_context.base.fps;
@@ -75,17 +74,6 @@ impl<App: CatApp> ApplicationHandler for WinitApp<App> {
 
                     self.lag -= ms_per_upd;
                 }
-                // if fps != app_context.base.fps {
-                //     if app_context.base.fps != 0 {
-                //         self.fps_timer = Some(Timer::new(Duration::from_secs_f32(
-                //             1. / app_context.base.fps as f32,
-                //         )));
-                //     } else {
-                //         self.fps_timer = Some(Timer::new(Duration::from_secs_f32(0.)));
-                //     }
-                // }
-                // self.fps_timer.as_mut().unwrap().reset();
-                // }
             }
             WindowEvent::Resized(physical_size) => {
                 app_context.base.renderer.on_resize(&id, physical_size);

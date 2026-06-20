@@ -20,52 +20,106 @@ pub struct Sprite {
     transform: Transform,
     render: SpriteRender,
     box_rect: Rect,
+    is_have_rect: bool,
+    origin: Vec2,
 }
 
 impl Sprite {
+    pub fn update_texture(&mut self, texture: Texture) {
+        self.render.change_texture(texture.clone());
+        if self.size.x == 0. || self.size.y == 0. {
+            let mut width = self.size.x;
+            let mut height = self.size.y;
+            if width == 0. {
+                width = texture.get_size().x as f32;
+            }
+            if height == 0. {
+                height = texture.get_size().y as f32;
+            }
+            self.render.update_size(Vec2::new(width, height));
+            self.update_box();
+        }
+        if !self.is_have_rect {
+            let rect = Rect {
+                min: Vec2::splat(0.),
+                max: Vec2::new(texture.get_size().x as f32, texture.get_size().y as f32),
+            };
+
+            self.render.update_rect(rect);
+        }
+    }
     pub fn get_transform(&self) -> Transform {
         self.transform
     }
+    pub fn get_texture(&self) -> Texture {
+        self.render.texture.clone()
+    }
     pub fn new(
         layout: &SpriteLayout,
-        width: f32,
-        height: f32,
+        orig_width: f32,
+        orig_height: f32,
         transform: Transform,
         texture: Texture,
-        rect: Option<Rect>,
+        orig_rect: Option<Rect>,
     ) -> Self {
-        let rect = match rect {
+        let mut width = orig_width;
+        let mut height = orig_height;
+        if width == 0. {
+            width = texture.get_size().x as f32;
+        }
+        if height == 0. {
+            height = texture.get_size().y as f32;
+        }
+        let rect = match orig_rect {
             Some(r) => r,
             None => Rect {
                 min: Vec2::splat(0.),
                 max: Vec2::new(texture.get_size().x as f32, texture.get_size().y as f32),
             },
         };
-        let size = Vec2::new(width, height);
-        let render = SpriteRender::new(size, transform, texture, layout, rect);
+        let size = Vec2::new(orig_width, orig_height);
+        let render = SpriteRender::new(Vec2::new(width, height), transform, texture, layout, rect);
         let mut s = Self {
             size,
             transform,
             render,
             box_rect: Rect::new(0., 0., size.x, size.y).transformed(transform),
+            is_have_rect: orig_rect.is_some(),
+            origin: layout.origin,
         };
         s.update_box();
         s
     }
     pub fn set_rect(&mut self, rect: Rect) {
+        self.is_have_rect = true;
         self.render.update_rect(rect);
     }
     fn update_box(&mut self) {
-        self.box_rect = Rect::new(
-            -self.size.x / 2.,
-            -self.size.y / 2.,
-            self.size.x / 2.,
-            self.size.y / 2.,
-        )
-        .transformed(self.transform);
+        let mut width = self.size.x;
+        let mut height = self.size.y;
+        if width == 0. {
+            width = self.render.texture.get_size().x as f32;
+        }
+        if height == 0. {
+            height = self.render.texture.get_size().y as f32;
+        }
+        let rect = Rect::new(
+            0. - self.origin.x,
+            0. + self.origin.y,
+            1. - self.origin.x,
+            1. + self.origin.y,
+        );
+        let rect = rect * Vec2::new(width, height);
+        self.box_rect = rect.transformed(self.transform);
     }
-    pub fn update_size(&mut self, new_size: Vec2) {
+    pub fn update_size(&mut self, mut new_size: Vec2) {
         self.size = new_size;
+        if new_size.x == 0. {
+            new_size.x = self.render.texture.get_size().x as f32;
+        }
+        if new_size.y == 0. {
+            new_size.y = self.render.texture.get_size().y as f32;
+        }
         self.render.update_size(new_size);
         self.update_box();
     }
@@ -76,7 +130,6 @@ impl Sprite {
     }
     pub fn render(&mut self, render: &mut Render) {
         let proj = render.get_projection();
-        println!("{:?}", self.box_rect);
         let need_render = match proj {
             CameraProjection::P2D {
                 near: _,
@@ -101,6 +154,7 @@ pub struct SpriteRender {
     texture: Texture,
     updated_uniform: bool,
     updated_rect: bool,
+    updated_texture: bool,
     rect: Rect,
 
     material: Option<Material>,
@@ -119,7 +173,11 @@ impl SpriteRender {
                 ],
                 vec![(1, 2, self.texture.clone())],
             ));
+            self.updated_uniform = true;
+            self.updated_rect = true;
+            self.updated_texture = false;
         }
+
         if self.updated_uniform {
             self.updated_uniform = false;
             self.update_uniform();
@@ -128,9 +186,20 @@ impl SpriteRender {
             self.updated_rect = false;
             self.update_rect_inner();
         }
+        if self.updated_texture {
+            self.updated_texture = false;
+            self.material
+                .as_mut()
+                .unwrap()
+                .change_textures(vec![(1, 2, self.texture.clone())]);
+        }
         render.use_camera_uniform_at(1);
         self.mesh
             .draw_with_material(render, self.material.as_mut().unwrap());
+    }
+    pub fn change_texture(&mut self, texture: Texture) {
+        self.texture = texture;
+        self.updated_texture = true;
     }
     pub fn new(
         size: Vec2,
@@ -149,6 +218,7 @@ impl SpriteRender {
             updated_uniform: false,
             rect,
             updated_rect: false,
+            updated_texture: false,
         }
     }
     pub fn update_rect(&mut self, rect: Rect) {
@@ -204,10 +274,16 @@ impl SpriteRender {
 pub struct SpriteLayout {
     material_layout: MaterialLayout,
     mesh: MeshRef,
+    origin: Vec2,
 }
 
 impl SpriteLayout {
-    pub fn new(context: &mut AppContext, camera: BindGroup) -> Self {
+    pub fn new(context: &mut AppContext, camera: BindGroup, origin: Option<Vec2>) -> Self {
+        let origin = if let Some(o) = origin {
+            o
+        } else {
+            Vec2::splat(0.5)
+        };
         let mut material_layout = MaterialLayoutBuilder::new(PipelineOptions {
             vertex_shader: include_str!("sprite_shader.wgsl").to_string(),
             vertex_entry_point: String::from("vs_main"),
@@ -226,20 +302,20 @@ impl SpriteLayout {
             mesh: Mesh::new(
                 vec![
                     Vertex {
-                        position: [-0.5, 0.5, 0.],
+                        position: [0. - origin.x, 0. + origin.y, 0.],
                         tex_coords: [0., 0.],
                     },
                     Vertex {
-                        position: [-0.5, -0.5, 0.],
+                        position: [0. - origin.x, -1. + origin.y, 0.],
                         // position: [0., 1., 0.],
                         tex_coords: [0., 1.],
                     },
                     Vertex {
-                        position: [0.5, 0.5, 0.],
+                        position: [1. - origin.x, 0. + origin.y, 0.],
                         tex_coords: [1., 0.],
                     },
                     Vertex {
-                        position: [0.5, -0.5, 0.],
+                        position: [1. - origin.x, -1. + origin.y, 0.],
                         // position: [1., 1., 0.],
                         tex_coords: [1., 1.],
                     },
@@ -248,6 +324,7 @@ impl SpriteLayout {
                 // vec![0, 3, 1, 0, 2, 3],
             )
             .ref_me(),
+            origin,
         }
     }
 }

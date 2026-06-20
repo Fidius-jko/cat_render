@@ -31,6 +31,11 @@ impl CatApp for App {
     }
     fn new(context: &mut AppContext) -> Self {
         cat_render::utils::init_utils(context);
+        let data = std::fs::read("assets/FiraMono-Medium.ttf").unwrap();
+        let face = ttf_parser::Face::parse(&data, 0).unwrap();
+        let id = face.glyph_index('A').unwrap();
+        let rect = face.glyph_bounding_box(id).unwrap();
+
         let window =
             context.create_window(WindowAttributes::default().with_title("Objects example"));
         let surface = context.create_surface_for_window(&window).unwrap();
@@ -82,7 +87,6 @@ impl CatApp for App {
             Vertex { position: [-49.513406, 6.958647, 0.0] , tex_coords: [0.0048659444, 0.56958647], }, // B
             Vertex { position: [-21.918549, -44.939706, 0.0], tex_coords: [0.28081453, 0.05060294], }, // C
             Vertex { position: [35.966998, -34.73291, 0.0], tex_coords: [0.85967, 0.1526709], }, // D
-            Vertex { position: [44.147372, 23.47359, 0.0], tex_coords: [0.9414737, 0.7347359], }, // E
         ];
         let indices: Vec<u16> = vec![0, 1, 4, 1, 2, 4, 2, 3, 4];
         let mesh = Mesh::new(vertices, indices);

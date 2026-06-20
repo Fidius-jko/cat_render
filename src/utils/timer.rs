@@ -27,6 +27,7 @@ pub struct TimeStep {
     delta_time: f32,
     frame_count: u32,
     frame_time: f32,
+    last_frame_rate: u32,
 }
 impl Default for TimeStep {
     fn default() -> Self {
@@ -40,6 +41,7 @@ impl TimeStep {
             delta_time: 0.0,
             frame_count: 0,
             frame_time: 0.0,
+            last_frame_rate: 0,
         }
     }
 
@@ -55,12 +57,13 @@ impl TimeStep {
         self.frame_count += 1;
         self.frame_time += self.delta_time;
         let tmp;
-        if self.frame_time >= 1000.0 {
+        if self.frame_time >= 1.0 {
             tmp = self.frame_count;
             self.frame_count = 0;
             self.frame_time = 0.0;
+            self.last_frame_rate = tmp;
             return Some(tmp);
         }
-        None
+        Some(self.last_frame_rate)
     }
 }

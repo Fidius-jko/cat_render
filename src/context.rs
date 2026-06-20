@@ -8,6 +8,7 @@ use std::{
 use crate::{
     app::LoopType,
     render::{surface::SurfaceId, Renderer},
+    utils::timer::TimeStep,
     window::{CatWindow, WindowAttributes, Windows},
     winit::WinitContext,
 };

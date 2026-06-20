@@ -51,7 +51,7 @@ impl UnMutRenderer {
     async fn new_async() -> Self {
         let instance = wgpu::Instance::new(&wgpu::InstanceDescriptor {
             #[cfg(not(target_arch = "wasm32"))]
-            backends: wgpu::Backends::PRIMARY,
+            backends: wgpu::Backends::DX12,
             #[cfg(target_arch = "wasm32")]
             backends: wgpu::Backends::NOT_SUPPPORT,
             ..Default::default()
@@ -76,7 +76,7 @@ impl UnMutRenderer {
                         wgpu::Limits::default()
                     },
                     label: None,
-                    memory_hints: Default::default(),
+                    memory_hints: wgpu::MemoryHints::MemoryUsage,
                 },
                 None, // Trace path
             )
@@ -113,6 +113,10 @@ pub struct Render<'a> {
 }
 
 impl Render<'_> {
+    pub fn set_camera(&mut self, camera: &mut impl Camera) {
+        let size = self.get_surface_size();
+        self.camera_render = Some(camera.get_render_global(&mut self.renderer, size).clone());
+    }
     pub fn get_projection(&self) -> CameraProjection {
         self.camera_render.as_ref().unwrap().proj
     }
@@ -304,27 +308,27 @@ impl Renderer {
     ) -> Rc<RenderPipeline> {
         self.pipelines.get_pipeline_for_surface(format, pipeline_id)
     }
-    pub fn start_render_for_camera<C: Camera>(
-        &mut self,
-        camera: &mut C,
-        clear_color: Option<Color>,
-        mut commands_sender: impl FnMut(&mut Render),
-    ) {
-        let size = Surfaces::get().get_surface(camera.get_surface_id()).size;
+    // pub fn start_render_for_camera<C: Camera>(
+    //     &mut self,
+    //     camera: &mut C,
+    //     clear_color: Option<Color>,
+    //     mut commands_sender: impl FnMut(&mut Render),
+    // ) {
+    //     let size = Surfaces::get().get_surface(camera.get_surface_id()).size;
 
-        let cam_render = camera
-            .get_render_global(self, (size.width, size.height))
-            .clone();
-        self.start_render_for_surface(
-            camera.get_surface_id(),
-            clear_color,
-            cam_render.depth_texture.as_ref(),
-            |render| {
-                render.camera_render = Some(cam_render.clone());
-                (commands_sender)(render)
-            },
-        );
-    }
+    //     let cam_render = camera
+    //         .get_render_global(self, (size.width, size.height))
+    //         .clone();
+    //     self.start_render_for_surface(
+    //         camera.get_surface_id(),
+    //         clear_color,
+    //         cam_render.depth_texture.as_ref(),
+    //         |render| {
+    //             render.camera_render = Some(cam_render.clone());
+    //             (commands_sender)(render)
+    //         },
+    //     );
+    // }
     /// Renderings starts here!
     #[allow(unused_assignments)]
     pub fn start_render_for_surface(
